@@ -120,6 +120,7 @@ def test_full_flow_success():
     assert result.candidate_id is not None
     assert result.trace is not None
     assert "0_runtime_validation" in result.trace.steps
+    assert "7_capability_shortcut" in result.trace.steps
     assert "8_llm_generation" in result.trace.steps
     assert "11_memory_write" in result.trace.steps
     assert "12_candidate_eligible" in result.trace.steps
@@ -354,7 +355,7 @@ def test_sc5_governance_not_bypassable():
         memory_store=store,
         llm_client=llm,
     )
-    result3 = loop2.run("tell me about yourself")
+    result3 = loop2.run("hello again")
     assert result3.blocked is True
     assert "cannot emit" in result3.response.lower()
 

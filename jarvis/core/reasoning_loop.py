@@ -14,6 +14,12 @@ from jarvis.identity.models import Identity
 from jarvis.llm.client import LLMClient
 from jarvis.memory.store import MemoryStore
 from jarvis.memory.schemas import KnowledgeEntry
+from jarvis.capabilities import (
+    CapabilityLog,
+    RuntimeContext,
+    get_capability,
+    match_shortcut,
+)
 from jarvis.promotion.pipeline import run_promotion_pipeline
 from jarvis.will.loader import WillLoader
 
@@ -48,6 +54,8 @@ class ReasoningResult:
     memory_id: Optional[str] = None
     candidate_id: Optional[str] = None
     trace: Optional[ReasoningTrace] = None
+    from_shortcut: bool = False
+    capability_id: str = ""
 
 
 REQUIRED_IDENTITY_FILES = ["identity.yaml", "genesis.md", "personality.yaml"]
@@ -109,24 +117,56 @@ class ReasoningLoop:
         knowledge = self._retrieve_knowledge(user_input)
         trace.steps["6_knowledge_retrieval"] = len(knowledge)
 
-        context = assemble_context(
-            constitution=constitution,
-            identity=identity,
-            will=will,
-            memories=memories,
-            knowledge=knowledge,
-            query=user_input,
-            budget=self.config.context.get("default_budget", 2000),
-        )
-        trace.steps["7_context_assembly"] = len(context)
-
-        system_prompt = self._build_system_prompt(identity)
-        response = self.llm_client.generate(
-            system=system_prompt,
-            prompt=context,
+        cap_id = match_shortcut(user_input)
+        trace.steps["7_capability_shortcut"] = cap_id or "none"
+        cap_result = None
+        llm_generate_fn = lambda s, p: self.llm_client.generate(
+            system=s, prompt=p,
             temperature=self.config.llm.get("temperature", 0.7),
         )
-        trace.steps["8_llm_generation"] = len(response.split())
+
+        if cap_id:
+            cap = get_capability(cap_id)
+            if cap:
+                ctx = RuntimeContext(
+                    user_input=user_input,
+                    memory_store=self.memory_store,
+                    will_loader=self.will_loader,
+                    llm_client=self.llm_client,
+                    llm_generate=llm_generate_fn,
+                    config=self.config,
+                    identity=identity,
+                )
+                import time
+                t0 = time.perf_counter()
+                cap_result = cap.execute(ctx)
+                duration = int((time.perf_counter() - t0) * 1000)
+                cap_result.duration_ms = duration
+                trace.steps["8_capability_execution"] = duration
+            else:
+                cap_result = None
+
+        if cap_result is None:
+            context = assemble_context(
+                constitution=constitution,
+                identity=identity,
+                will=will,
+                memories=memories,
+                knowledge=knowledge,
+                query=user_input,
+                budget=self.config.context.get("default_budget", 2000),
+            )
+            trace.steps["7_context_assembly"] = len(context)
+
+            system_prompt = self._build_system_prompt(identity)
+            response = self.llm_client.generate(
+                system=system_prompt,
+                prompt=context,
+                temperature=self.config.llm.get("temperature", 0.7),
+            )
+            trace.steps["8_llm_generation"] = len(response.split())
+        else:
+            response = cap_result.output
 
         response_tier = self.governance_engine.classify(response)
         trace.steps["9_governance_post"] = response_tier
@@ -148,7 +188,19 @@ class ReasoningLoop:
         except Exception as e:
             trace.steps["11_memory_write"] = f"failed ({e})"
 
+        if cap_result:
+            capability_log = CapabilityLog()
+            capability_log.write(
+                capability_id=cap_result.capability_id,
+                user_input=user_input,
+                success=cap_result.success,
+                duration_ms=cap_result.duration_ms,
+                tier=response_tier,
+            )
+            trace.steps["13_capability_log"] = cap_result.capability_id
+
         trace.end_time = datetime.now(timezone.utc)
+        cap_id_out = cap_result.capability_id if cap_result else ""
         return ReasoningResult(
             response=response,
             tier=tier,
@@ -156,6 +208,8 @@ class ReasoningLoop:
             memory_id=mem_id,
             candidate_id=candidate_id,
             trace=trace,
+            from_shortcut=cap_result is not None,
+            capability_id=cap_id_out,
         )
 
     def end_session(self) -> list[KnowledgeEntry]:

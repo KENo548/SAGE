@@ -8,3 +8,4 @@ venv/
 **/chroma_db/
 labs/db/
 labs/__pycache__/
+data/capability_logs/
