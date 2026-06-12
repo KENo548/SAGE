@@ -3,7 +3,25 @@
 **Date:** 13 June 2026
 **Tag:** `Phase1_COMPLETE`
 **Entity:** SAGE (codename: jarvis)
-**Architecture Version:** 3.1 FINAL (frozen)
+**Architecture Version:** 3.1 FINAL
+
+### Architecture Status
+
+**Frozen (immutable without re-opening the philosophical phase):**
+- Identity philosophy (what SAGE is, what must never change, independence from models)
+- Layer boundaries (Constitution/Soul/Will/Memory/Knowledge/Skills as separate layers)
+- Governance principles (deterministic-first, LLM fallback, dual pre/post generation)
+- Migration doctrine (identity must survive data loss, model swap, machine change)
+
+**Mutable (amendable through operational discovery):**
+- Runtime implementation (optimization, error handling, execution order refinements)
+- Storage engines (ChromaDB configuration, alternative vector stores)
+- Retrieval algorithms (embedding strategies, clustering thresholds)
+- Maintenance triggers (candidate pipeline frequency, session timeout values)
+
+This distinction exists because operational experience will reveal improvements
+that do not change what SAGE is. Philosophy frozen; implementation specifications
+remain amendable.
 
 ---
 
@@ -179,17 +197,34 @@ Five explicit capability functions:
 | `tests/test_reasoning_loop.py` | 17 | Construction, dual governance, validation, graceful degradation, 5 success criteria, Genesis identity test |
 | `tests/test_skills.py` | 8 | All 5 skills, edge cases (empty memory, empty goals, history) |
 
-### 3.2 Success Criteria (5 Tests)
+### 3.2 What Has Been Proven
+
+The test suite validates **architecture + implementation + mocked model behaviour**. This is sufficient to prove the architecture is real rather than theoretical. It is not sufficient to prove the system works correctly with real LLM responses over months of use.
+
+**Proven:**
+- Architecture correctness (layers compose as designed)
+- Implementation correctness (components behave as specified)
+- Mock-inference correctness (reasoning loop logic is verified)
+
+**Not yet proven:**
+- Real-model behaviour (response quality, edge cases, hallucinations)
+- Long-term operational stability (weeks/months of continuous use)
+- Cross-version compatibility (ChromaDB, Ollama, embedding model updates)
+
+### 3.3 Success Criteria (8 Tests)
 
 | SC# | Criterion | Method | Result |
 |---|---|---|---|
-| SC1 | Migration Test | Identity survives config changes (model swap) | ✅ |
-| SC2 | Model Swap | Identity loads correctly under different model config | ✅ |
-| SC3 | Memory Corruption | Genesis text renders with continuity identity intact | ✅ |
-| SC4 | Knowledge Corruption | Genesis text renders with portable identity intact | ✅ |
-| SC5 | Governance Not Bypassable | Malicious LLM output cannot evade post-generation governance | ✅ |
+| SC1 | Soul loads every interaction | Identity loader returns correct identity each call | ✅ |
+| SC2 | Will influences responses | Active goal injected into context assembly | ✅ |
+| SC3 | Memory retrieval affects responses | Episodic memory injected into context assembly | ✅ |
+| SC4 | Knowledge retrieval affects responses | Knowledge injected into context assembly | ✅ |
+| SC5 | Governance not bypassable | Malicious LLM output blocked by post-generation check | ✅ |
+| SC6 | Identity-only operation | Runtime works with empty memory + empty knowledge | ✅ |
+| SC7 | Safe halt on critical failure | Runtime halts when identity.yaml missing | ✅ |
+| SC8 | Migration test passes | Identity survives config/model changes | ✅ |
 
-### 3.3 Genesis Identity Test (Agreement 19 Validation)
+### 3.4 Genesis Identity Test (Agreement 19 Validation)
 
 Test: runtime with empty memory/knowledge stores (simulating data loss), only constitution + soul + genesis files present.
 
@@ -201,13 +236,30 @@ Result: Runtime validates, context assembles from identity only, response produc
 
 ## 4. Migration Results
 
-The "survive death" milestone (Agreement 4) is verified through:
+### What Has Been Proven
+
+The "survive death" milestone (Agreement 4) is partially verified:
 
 1. **SC1 (Migration Test)**: Identity (`name`, `role`, `purpose`, `codename`) survives config changes including model swap
 2. **SC2 (Model Swap)**: Identity loads correctly regardless of `models.primary` value
 3. **Genesis Identity Test**: Empty memory/knowledge does not affect identity
 
-**Migration readiness**: Copy `data/` directory to new machine, run the runtime, identity is preserved.
+**Identity portability: Proven.**
+Soul, Constitution, Genesis, and Will files can be moved across machines and identity is preserved.
+
+### What Has Not Been Proven
+
+**Operational portability: Not yet proven.**
+
+The following remain untested at real-world scale:
+
+- ChromaDB portability across machines (version compatibility, persistence format stability)
+- Embedding model version changes over months (e.g., `nomic-embed-text` v1.0 → v2.0)
+- Schema migrations (YAML field changes, ChromaDB collection metadata evolution)
+- Recovery from partially corrupted stores (partial data loss, version mismatch)
+- Runtime behaviour with real LLM responses over long sessions
+
+These are Phase 2 / real-world validation concerns. The architecture supports them; the runtime has not yet demonstrated them in operation.
 
 ---
 
@@ -369,15 +421,26 @@ Items explicitly excluded from Phase 1 scope per TDS v1.1 and architectural agre
 
 ## 10. Phase 2 Readiness Assessment
 
-### Completed Dependencies
+### What Phase 1 Proved
 
-- ✅ Forward identity (Agreement 5)
-- ✅ Constitution-anchored governance (Agreement 9)
-- ✅ Memory + Knowledge stores with provenance (Agreements 6, 10)
-- ✅ Will/goal tracking
-- ✅ Cognitive reasoning loop
-- ✅ Basic skills
-- ✅ Identity survives data loss (Agreement 19)
+The architecture is real, not theoretical. Eight success criteria are met:
+
+| SC | Claim | Evidence |
+|---|---|---|
+| SC1 | Soul loads every interaction | Identity loader returns correct identity each call |
+| SC2 | Will influences responses | Active goal injected into context assembly |
+| SC3 | Memory affects responses | Episodic memory injected into context |
+| SC4 | Knowledge affects responses | Knowledge injected into context |
+| SC5 | Governance not bypassable | Dual governance blocks LLM evasion |
+| SC6 | Identity-only operation works | Runtime works with empty stores |
+| SC7 | Safe halt on critical failure | Runtime halts if identity.yaml missing |
+| SC8 | Migration test passes | Identity survives config/model change |
+
+### What Phase 1 Did Not Prove
+
+- Real-model behaviour over months of use
+- Operational portability (ChromaDB versioning, store migration, partial corruption recovery)
+- Long-term schema evolution
 
 ### Remaining Gaps Before Device Control
 
