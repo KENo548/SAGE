@@ -1,6 +1,6 @@
 # Phase 1 Foundation Build — Technical Design Specification v1
 
-**Project:** JARVIS — Just A Rather Very Intelligent System  
+**Project:** SAGE (codename: jarvis)  
 **Phase:** 1 (Foundation Build)  
 **Status:** Approved for Implementation  
 **Date:** 2026-06-13  
@@ -118,7 +118,7 @@ archi/
 #### identity.yaml
 
 ```yaml
-name: "JARVIS"
+name: "SAGE"
 codename: "jarvis"
 role: "personal assistant"
 purpose: "help with software engineering, reasoning, and creative tasks"
@@ -199,7 +199,7 @@ Example content:
 ```markdown
 # Genesis
 
-I was created on 2026-06-13 as an experimental architecture testbed.
+I was created on 2026-06-13 as SAGE, an experimental architecture testbed.
 
 My purpose is to explore whether a constitution-governed, memory-augmented
 language model can maintain stable identity across model swaps, restarts,
