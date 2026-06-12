@@ -32,6 +32,25 @@ DEFAULT_LLM = {
     "default_timeout": 120,
     "temperature": 0.7,
 }
+DEFAULT_SESSION = {
+    "timeout_minutes": 30,
+    "allow_manual_end": True,
+    "allow_keep_alive": True,
+}
+DEFAULT_PIPELINE = {
+    "inline_execution": False,
+    "triggers": {
+        "session_end": True,
+        "eligible_memory_threshold": 25,
+        "manual_trigger": True,
+        "startup_recovery": True,
+    },
+}
+DEFAULT_RETRIEVAL = {
+    "soul": {"unavailable": "halt"},
+    "memory": {"unavailable": "degrade_gracefully"},
+    "knowledge": {"unavailable": "degrade_gracefully"},
+}
 
 
 @dataclass
@@ -43,6 +62,9 @@ class Config:
     context: dict = field(default_factory=lambda: dict(DEFAULT_CONTEXT))
     promotion: dict = field(default_factory=lambda: dict(DEFAULT_PROMOTION))
     llm: dict = field(default_factory=lambda: dict(DEFAULT_LLM))
+    session: dict = field(default_factory=lambda: dict(DEFAULT_SESSION))
+    pipeline: dict = field(default_factory=lambda: dict(DEFAULT_PIPELINE))
+    retrieval: dict = field(default_factory=lambda: dict(DEFAULT_RETRIEVAL))
 
 
 def load_config(path: str) -> Config:
@@ -58,4 +80,7 @@ def load_config(path: str) -> Config:
         context=data.get("context", dict(DEFAULT_CONTEXT)),
         promotion=data.get("promotion", dict(DEFAULT_PROMOTION)),
         llm=data.get("llm", dict(DEFAULT_LLM)),
+        session=data.get("session", dict(DEFAULT_SESSION)),
+        pipeline=data.get("pipeline", dict(DEFAULT_PIPELINE)),
+        retrieval=data.get("retrieval", dict(DEFAULT_RETRIEVAL)),
     )

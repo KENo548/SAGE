@@ -29,3 +29,24 @@ promotion:
 llm:
   default_timeout: 120
   temperature: 0.7
+
+session:
+  timeout_minutes: 30
+  allow_manual_end: true
+  allow_keep_alive: true
+
+pipeline:
+  inline_execution: false
+  triggers:
+    session_end: true
+    eligible_memory_threshold: 25
+    manual_trigger: true
+    startup_recovery: true
+
+retrieval:
+  soul:
+    unavailable: halt
+  memory:
+    unavailable: degrade_gracefully
+  knowledge:
+    unavailable: degrade_gracefully

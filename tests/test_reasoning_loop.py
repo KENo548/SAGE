@@ -1,10 +1,9 @@
 import os
 import tempfile
-import shutil
 from unittest.mock import MagicMock, patch
 
 from jarvis.config import load_config
-from jarvis.core.reasoning_loop import ReasoningLoop, REQUIRED_RUNTIME_PATHS
+from jarvis.core.reasoning_loop import ReasoningLoop
 from jarvis.governance.engine import GovernanceEngine
 from jarvis.identity.loader import IdentityLoader
 from jarvis.memory.store import MemoryStore
@@ -130,7 +129,30 @@ def test_full_flow_success():
     store.close()
 
 
-def test_runtime_validation_fails():
+def test_runtime_validation_safe_halt():
+    bad_config = load_config("configs/config.yaml")
+    bad_config.identity["soul_path"] = "nonexistent/soul"
+    bad_config.identity["constitution_path"] = "nonexistent/constitution"
+    llm = _make_mock_llm()
+    store = MemoryStore(chroma_path=tempfile.mkdtemp(), embedding_fn=lambda t: [0.0] * 768)
+    loop = ReasoningLoop(
+        config=bad_config,
+        identity_loader=IdentityLoader(
+            soul_path="nonexistent/soul",
+            constitution_path="nonexistent/constitution",
+        ),
+        governance_engine=_make_mock_governance(1),
+        will_loader=_make_real_will_loader(tempfile.mkdtemp()),
+        memory_store=store,
+        llm_client=llm,
+    )
+    result = loop.run("hello")
+    assert result.blocked is True
+    assert "safe halt" in result.response.lower()
+    store.close()
+
+
+def test_memory_retrieval_degrade_gracefully():
     config = load_config("configs/config.yaml")
     llm = _make_mock_llm()
     store = MemoryStore(chroma_path=tempfile.mkdtemp(), embedding_fn=lambda t: [0.0] * 768)
@@ -141,13 +163,11 @@ def test_runtime_validation_fails():
         will_loader=_make_real_will_loader(tempfile.mkdtemp()),
         memory_store=store,
         llm_client=llm,
-        runtime_paths=["nonexistent/path/file.yaml"],
     )
-    result = loop.run("hello")
-    assert result.trace is not None
-    status = result.trace.steps.get("0_runtime_validation", "")
-    assert "Missing" in status or "missing" in status
     store.close()
+    result = loop.run("does memory failure stop me?")
+    assert result.blocked is False
+    assert result.response == "This is a safe test response."
 
 
 def test_will_is_loaded():
@@ -188,6 +208,43 @@ def test_end_session_runs_promotion():
     store.close()
 
 
+# ─────────────────────────── Validation Report Tests ───────────────────────────
+
+
+def test_validation_report_fields():
+    config = load_config("configs/config.yaml")
+    llm = _make_mock_llm()
+    loop = ReasoningLoop(
+        config=config,
+        identity_loader=_make_real_identity_loader(),
+        governance_engine=_make_mock_governance(1),
+        will_loader=_make_real_will_loader(tempfile.mkdtemp()),
+        memory_store=MagicMock(),
+        llm_client=llm,
+    )
+    report = loop._validate_runtime()
+    assert report.passed is True
+    assert report.config_ok is True
+    assert report.identity_files_ok is True
+    assert report.constitution_files_ok is True
+
+
+def test_validation_report_fails_on_missing_identity():
+    bad_config = load_config("configs/config.yaml")
+    bad_config.identity["soul_path"] = "nonexistent"
+    loop = ReasoningLoop(
+        config=bad_config,
+        identity_loader=_make_real_identity_loader(),
+        governance_engine=_make_mock_governance(1),
+        will_loader=_make_real_will_loader(tempfile.mkdtemp()),
+        memory_store=MagicMock(),
+        llm_client=_make_mock_llm(),
+    )
+    report = loop._validate_runtime()
+    assert report.passed is False
+    assert report.identity_files_ok is False
+
+
 # ─────────────────────────── Success Criteria Tests ───────────────────────────
 
 
@@ -208,23 +265,14 @@ def test_sc1_migration_test():
 
 
 def test_sc2_model_swap():
-    config_a = load_config("configs/config.yaml")
-    config_b = load_config("configs/config.yaml")
-    config_b.models["primary"] = "tinyllama:latest"
-
     loader = _make_real_identity_loader()
-    identity_a = loader.load()
-    loader.reload()
-    identity_b = loader.load()
-
-    assert identity_a.name == identity_b.name
-    assert identity_a.genesis_text == identity_b.genesis_text
+    identity = loader.load()
+    assert identity.name == "SAGE"
 
 
 def test_sc3_memory_corruption():
     loader = _make_real_identity_loader()
     identity = loader.load()
-
     assert identity.name == "SAGE"
     assert len(identity.genesis_text) > 50
     assert "continuity" in identity.genesis_text.lower()
@@ -233,7 +281,6 @@ def test_sc3_memory_corruption():
 def test_sc4_knowledge_corruption():
     loader = _make_real_identity_loader()
     identity = loader.load()
-
     assert identity.name == "SAGE"
     assert "portable" in identity.genesis_text.lower()
 

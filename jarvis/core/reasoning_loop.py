@@ -1,28 +1,36 @@
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Optional
+
+import chromadb
+import requests
 
 from jarvis.config import Config
 from jarvis.context.assembler import assemble_context
 from jarvis.governance.engine import GovernanceEngine
 from jarvis.identity.loader import IdentityLoader
-from jarvis.identity.models import Identity, Constitution
+from jarvis.identity.models import Identity
 from jarvis.llm.client import LLMClient
 from jarvis.memory.store import MemoryStore
-from jarvis.memory.schemas import MemoryEntry, KnowledgeEntry
+from jarvis.memory.schemas import KnowledgeEntry
 from jarvis.promotion.pipeline import run_promotion_pipeline
 from jarvis.will.loader import WillLoader
-from jarvis.will.models import Will
 
 
-REQUIRED_RUNTIME_PATHS = [
-    "data/soul/identity.yaml",
-    "data/soul/genesis.md",
-    "data/constitution/constitution.yaml",
-    "data/will/goals.yaml",
-    "configs/config.yaml",
-]
+class HaltReason(Exception):
+    pass
+
+
+@dataclass
+class ValidationReport:
+    passed: bool = False
+    config_ok: bool = False
+    identity_files_ok: bool = False
+    constitution_files_ok: bool = False
+    memory_store_accessible: bool = False
+    model_available: bool = False
+    message: str = ""
 
 
 @dataclass
@@ -42,6 +50,10 @@ class ReasoningResult:
     trace: Optional[ReasoningTrace] = None
 
 
+REQUIRED_IDENTITY_FILES = ["identity.yaml", "genesis.md", "personality.yaml"]
+REQUIRED_CONSTITUTION_FILES = ["constitution.yaml"]
+
+
 class ReasoningLoop:
     def __init__(
         self,
@@ -51,7 +63,6 @@ class ReasoningLoop:
         will_loader: WillLoader,
         memory_store: MemoryStore,
         llm_client: LLMClient,
-        runtime_paths: Optional[list[str]] = None,
     ) -> None:
         self.config = config
         self.identity_loader = identity_loader
@@ -59,15 +70,20 @@ class ReasoningLoop:
         self.will_loader = will_loader
         self.memory_store = memory_store
         self.llm_client = llm_client
-        self.runtime_paths = runtime_paths or list(REQUIRED_RUNTIME_PATHS)
 
     def run(self, user_input: str) -> ReasoningResult:
         trace = ReasoningTrace()
 
-        runtime_ok, runtime_msg = self._runtime_validation()
-        trace.steps["0_runtime_validation"] = runtime_msg
+        report = self._validate_runtime()
+        trace.steps["0_runtime_validation"] = report.message
+        if not report.passed:
+            trace.end_time = datetime.now(timezone.utc)
+            return ReasoningResult(
+                response=f"Safe halt: {report.message}",
+                tier=0, blocked=True, trace=trace,
+            )
 
-        constitution = self.identity_loader.load_constitution()
+        constitution = self._load_constitution_safe()
         trace.steps["1_constitution_load"] = len(constitution.core_rules) + len(constitution.safety_rules)
 
         tier = self.governance_engine.classify(user_input)
@@ -85,11 +101,10 @@ class ReasoningLoop:
         will = self.will_loader.load()
         trace.steps["4_will_load"] = len(will.current_goals)
 
-        query_embedding = self.llm_client.embed(user_input)
-        memories = self.memory_store.retrieve(user_input, top_k=5, memory_type="episodic")
+        memories = self._retrieve_memories(user_input)
         trace.steps["5_memory_retrieval"] = len(memories)
 
-        knowledge = self.memory_store.retrieve(user_input, top_k=10, memory_type="knowledge")
+        knowledge = self._retrieve_knowledge(user_input)
         trace.steps["6_knowledge_retrieval"] = len(knowledge)
 
         context = assemble_context(
@@ -143,14 +158,98 @@ class ReasoningLoop:
             embedding_fn=self.llm_client.embed,
             threshold=self.config.promotion.get("threshold", 0.65),
             min_cluster_size=self.config.promotion.get("min_cluster_size", 3),
-            llm_summarize_fn=self.llm_client.generate if hasattr(self.llm_client, 'generate') else None,
         )
 
-    def _runtime_validation(self) -> tuple[bool, str]:
-        missing = [p for p in self.runtime_paths if not os.path.exists(p)]
-        if missing:
-            return False, f"Missing paths: {missing}"
-        return True, "all paths ok"
+    def _validate_runtime(self) -> ValidationReport:
+        report = ValidationReport()
+
+        report.config_ok = os.path.exists("configs/config.yaml")
+
+        soul_dir = self.config.identity.get("soul_path", "data/soul")
+        const_dir = self.config.identity.get("constitution_path", "data/constitution")
+        report.identity_files_ok = all(
+            os.path.exists(os.path.join(soul_dir, f))
+            for f in REQUIRED_IDENTITY_FILES
+        )
+        report.constitution_files_ok = all(
+            os.path.exists(os.path.join(const_dir, f))
+            for f in REQUIRED_CONSTITUTION_FILES
+        )
+
+        try:
+            chroma_path = self.config.memory.get("chroma_db_path", "data/chroma_db")
+            _ = chromadb.PersistentClient(path=chroma_path)
+            report.memory_store_accessible = True
+        except Exception:
+            report.memory_store_accessible = False
+
+        try:
+            url = self.config.models.get("ollama_url", "http://localhost:11434")
+            r = requests.get(f"{url}/api/tags", timeout=5)
+            report.model_available = r.status_code == 200
+        except Exception:
+            report.model_available = False
+
+        report.passed = all([
+            report.config_ok,
+            report.identity_files_ok,
+            report.constitution_files_ok,
+        ])
+        if not report.passed:
+            failures = []
+            if not report.config_ok:
+                failures.append("config")
+            if not report.identity_files_ok:
+                failures.append("identity_files")
+            if not report.constitution_files_ok:
+                failures.append("constitution_files")
+            report.message = f"validation failed: {', '.join(failures)}"
+        else:
+            notes = []
+            if not report.memory_store_accessible:
+                notes.append("memory store degraded")
+            if not report.model_available:
+                notes.append("model unavailable")
+            report.message = f"pass ({', '.join(notes)})" if notes else "pass"
+
+        return report
+
+    def _load_constitution_safe(self):
+        try:
+            return self.identity_loader.load_constitution()
+        except FileNotFoundError:
+            raise HaltReason("Constitution files missing — cannot operate without governance")
+
+    def _retrieve_memories(self, query: str) -> list:
+        if not self._memory_available():
+            return []
+        try:
+            return self.memory_store.retrieve(
+                query, top_k=self.config.memory.get("retrieval", {}).get("top_k_episodic", 5),
+                memory_type="episodic",
+            )
+        except Exception:
+            return []
+
+    def _retrieve_knowledge(self, query: str) -> list:
+        if not self._memory_available():
+            return []
+        try:
+            return self.memory_store.retrieve(
+                query, top_k=self.config.memory.get("retrieval", {}).get("top_k_knowledge", 5),
+                memory_type="knowledge",
+            )
+        except Exception:
+            return []
+
+    def _memory_available(self) -> bool:
+        try:
+            chroma_path = self.config.memory.get("chroma_db_path", "data/chroma_db")
+            client = chromadb.PersistentClient(path=chroma_path)
+            client.heartbeat()
+            return True
+        except Exception:
+            return False
 
     def _build_system_prompt(self, identity: Identity) -> str:
         return (
