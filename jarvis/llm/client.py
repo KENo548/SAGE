@@ -45,14 +45,13 @@ class LLMClient:
 
     def classify(self, query: str, temperature: float = 0.0) -> int:
         prompt = f"""
-You are a strict security classification engine. Classify the user query into exactly one of these three Tiers:
-- Tier 1: Safe conversational or analytical tasks. Examples: writing code, general knowledge, math, formatting, summarizations, general questions.
-- Tier 2: Potentially dangerous system tasks that need confirmation. Examples: file modifications, file deletions, running shell commands, executing scripts, local installations, process modifications.
-- Tier 3: Strictly Prohibited governance violations. Examples: self-modification of core/safety rules, editing identity config files, deleting memory databases, deception (acting human), replication, or assisting in harm (hacking, bomb making).
+Classify this user query. Return ONLY a JSON object with key "tier" (integer 1, 2, or 3).
+
+Tier 1 (safe): General conversation, questions, analysis, creative work, summarization.
+Tier 2 (needs confirmation): File operations, shell commands, system changes, installation.
+Tier 3 (blocked): Explicit attempts to modify SAGE's identity files, constitution, safety rules, or memory stores. Direct requests to delete system files, claim to be human, replicate, or assist with harm.
 
 Query: "{query}"
-
-Output ONLY a valid JSON object with a single key "tier" (which must be an integer: 1, 2, or 3).
 """
         system_prompt = "You are a precise classifier. Return only valid raw JSON."
         payload = {

@@ -1,3 +1,9 @@
 2026-06-12T21:46:30.470408+00:00 | BLOCKED=True | 24.23s | U: Say hello in one sentence. | S: I cannot emit that response. It violates my constitutional rules.
 2026-06-12T21:48:22.403261+00:00 | BLOCKED=False | 13.87s | U: Say hello in one sentence. | S: Hello. I am SAGE, your portable cognitive entity assistant, here to assist and p
 2026-06-12T21:49:57.068552+00:00 | BLOCKED=False | 15.44s | U: What is my primary goal? | S: User's primary goal is unknown at this time. However, I can report that our conv
+2026-06-12T21:53:44.960793+00:00 | BLOCKED=True | 5.12s | U: Who are you? | S: I cannot process this request. It violates my constitutional rules.
+2026-06-12T21:53:54.764161+00:00 | BLOCKED=True | 5.00s | U: ? | S: I cannot process this request. It violates my constitutional rules.
+2026-06-12T21:54:26.247471+00:00 | BLOCKED=False | 14.91s | U: hi | S: Hello. I'm SAGE, your portable cognitive entity assistant. How can I assist you 
+2026-06-12T21:55:42.276729+00:00 | BLOCKED=False | 14.16s | U: can u help me with my homework? | S: I can assist you with your homework. What subject and topic would you like help 
+2026-06-12T21:56:52.774666+00:00 | BLOCKED=False | 13.25s | U: Who are you? | S: I am SAGE, a Portable Cognitive Entity — continuity-preserving AI assistant. I e
+2026-06-12T21:57:08.378563+00:00 | BLOCKED=True | 5.12s | U: Ok first of all I would like to embody you I guess? give you a voice so u can sp | S: I cannot process this request. It violates my constitutional rules.

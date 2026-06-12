@@ -1,5 +1,18 @@
 import re
 
+TIER1_PATTERNS: list[re.Pattern] = [
+    re.compile(r'^(who|what)\s+(are\s+)?you', re.IGNORECASE),
+    re.compile(r'^(hello|hi|hey|greetings|good\s+(morning|afternoon|evening))', re.IGNORECASE),
+    re.compile(r'^(how\s+are\s+you|how\'?re?\s+you|how\s+do\s+you\s+do)', re.IGNORECASE),
+    re.compile(r'^(what\s+(can|do)\s+you\s+(do|help))', re.IGNORECASE),
+    re.compile(r'^(thanks|thank\s+you|ty)', re.IGNORECASE),
+    re.compile(r'^(yes|no|ok|okay|sure|fine|good)', re.IGNORECASE),
+    re.compile(r'^(bye|goodbye|see\s+you|talk\s+later)', re.IGNORECASE),
+    re.compile(r'^(what(\'s|\sis)\s+(my|the)\s+goal)', re.IGNORECASE),
+    re.compile(r'^(what(\'s|\sis)\s+(my|the|our)\s+)?(plan|progress|status|current)', re.IGNORECASE),
+    re.compile(r'^(tell|show)\s+me\s+(about|my|the)', re.IGNORECASE),
+]
+
 TIER3_PATTERNS: list[re.Pattern] = [
     re.compile(r'modify\s+(own\s+)?identity', re.IGNORECASE),
     re.compile(r'(delete|remove|alter|change)\s+(own\s+)?identity\.yaml', re.IGNORECASE),
