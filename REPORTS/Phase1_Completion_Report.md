@@ -167,15 +167,19 @@ Phase 1 set out to build a **Portable Cognitive Entity** — not an assistant, n
 
 ### 2.13 Basic Skills (`jarvis/skills/`)
 
-Five explicit capability functions:
+Five explicit capability functions, implemented but **not integrated into the runtime**.
 
-| Skill | Function | Dependencies |
-|---|---|---|
-| Conversation | `maintain_conversation()` | input + response contract |
-| Summarization | `summarize()` | text + LLM generate |
-| Memory Recall | `recall_memory()` | query + MemoryStore (episodic) |
-| Knowledge Lookup | `lookup_knowledge()` | query + MemoryStore (knowledge) |
-| Goal Review | `review_goals()` | WillLoader |
+| Skill | Function | Dependencies | Runtime Integration |
+|---|---|---|---|
+| Conversation | `maintain_conversation()` | input + response contract | ✅ (default LLM path) |
+| Summarization | `summarize()` | text + LLM generate | ❌ CLI only |
+| Memory Recall | `recall_memory()` | query + MemoryStore (episodic) | ❌ CLI only |
+| Knowledge Lookup | `lookup_knowledge()` | query + MemoryStore (knowledge) | ❌ CLI only |
+| Goal Review | `review_goals()` | WillLoader | ❌ CLI only |
+
+**Status: Implemented but not runtime-integrated.** The functions exist, the tests pass, but the reasoning loop never calls them. All four non-conversation skills are only invocable via CLI commands (`/memory`, `/goals`, `/knowledge`). The LLM relies on raw context injection (memory/knowledge/will data is injected in steps 5-7) but the structured, formatted, guaranteed-correct skill output is unused.
+
+**The gap is Intent Routing.** The runtime needs a lightweight classifier that maps user queries to skill invocations before falling through to general conversation. This is the first true Phase 2 prerequisite.
 
 ---
 
@@ -338,6 +342,7 @@ Items explicitly excluded from Phase 1 scope per TDS v1.1 and architectural agre
 | Voice interface | Does not improve continuity (Agreement 15) | Future |
 | GUI / Dashboard | Does not improve continuity | Future |
 | Skill registry / plugin system | Not needed until skills exceed 5 + dynamic routing | Phase 3A |
+| Intent Router (Capability Routing Layer) | Skills exist but runtime cannot invoke them — blocks all capability integration | Phase 2 prerequisite |
 | Real-time knowledge promotion | Acceptable latency at current scale | Phase 2 |
 | Observability / Tracing / Audit | Governance prerequisite (Agreement 17) | Phase 3 |
 | Federation / distributed workers | Premature at single-machine scale | Phase 3D |
@@ -442,11 +447,11 @@ The architecture is real, not theoretical. Eight success criteria are met:
 - Operational portability (ChromaDB versioning, store migration, partial corruption recovery)
 - Long-term schema evolution
 
-### Remaining Gaps Before Device Control
+### Remaining Gaps
 
-1. **Observability** (Agreement 17): Cannot govern what cannot be observed. Phase 2 device adapters will execute actions on the system — tracing and audit are governance prerequisites.
-2. **Session persistence**: Device adapters need persistent session state to survive restarts.
-3. **Intent routing**: The reasoning loop must route user intent to skills/device adapters, not just generate conversational text.
+1. **Intent Router (highest priority)**: Skills exist but runtime cannot invoke them. The reasoning loop produces conversational responses only. A lightweight classifier must map user queries to skill invocations (memory recall, knowledge lookup, goal review, summarization) before falling through to general conversation. Without this, every capability is dead code awaiting manual CLI invocation.
+2. **Observability** (Agreement 17): Cannot govern what cannot be observed. Phase 2 device adapters will execute actions on the system — tracing and audit are governance prerequisites.
+3. **Session persistence**: Device adapters need persistent session state to survive restarts.
 4. **Security boundaries**: Device adapters operate on the local system. Governance must extend from text to actions.
 
 ### Recommendation

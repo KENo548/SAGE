@@ -150,3 +150,35 @@ MemoryStore.embedding_fn uses LLMClient(model="nomic-embed-text:latest").embed()
 2. Updated `run_sage.py:build_loop()` to pass the correct embed function using the embedding model.
 3. Memory write now uses `self.embed_fn()` (configured with `nomic-embed-text:latest`).
 4. Verified all 3 skill tests PASS after fix.
+
+## 2026-06-13
+
+### Category: architecture
+
+**Observation:**
+Skills are **implemented but not integrated**. The five skill functions exist in `jarvis/skills/`, all 8 tests pass, but the reasoning loop never calls them. Data (goals, memories, knowledge) is injected into LLM context via raw text, but the structured skill functions are dead code from the runtime's perspective.
+
+Current invocation paths:
+- Goals → context injection only → LLM sees raw goal text
+- Memory → context injection only → LLM sees raw memory text
+- Knowledge → context injection only → LLM sees raw knowledge text
+- Skills → CLI commands only (`/memory`, `/goals`, `/knowledge`) → never routed
+
+**Evidence:**
+```
+labs/test_skill_wiring.py — memory recall PASS, goal persistence PASS
+But only because the LLM found the data in context, not because the runtime called review_goals().
+```
+
+**Severity:** medium (data reaches LLM via context injection, but structured output is unused)
+
+**Hypothesized cause:**
+Architecture built layers (memory, will, knowledge) as data sources injected into context. Skills were added as a final sub-milestone of Phase 1, but the runtime was never extended to route to them. The reasoning loop ends at "assemble context → generate response → write memory" with no capability dispatch phase.
+
+**Action:**
+Identified as Phase 2 prerequisite: **Intent Router (Capability Routing Layer)**. Before any device adapters, the runtime needs a classifier that maps user queries to skill invocations. Documented in Phase 1 Completion Report deferred items and Phase 2 readiness section.
+
+**Status:**
+- Basic Skills data path: ✅ works (context injection)
+- Basic Skills invocation path: ❌ not routed
+- Phase 1 roadmap needs update: 🟡 implemented, ❌ not integrated

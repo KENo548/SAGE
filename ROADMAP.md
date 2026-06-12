@@ -23,7 +23,7 @@ Portable Brain
 - ✅ Migration Test
 - ✅ Knowledge  
 - ✅ Reasoning Loop  
-- ✅ Basic Skills
+- 🟡 Basic Skills (implemented, not runtime-integrated — needs Intent Router)
 No device control yet.
 
 ---
