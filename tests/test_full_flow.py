@@ -10,6 +10,9 @@ from jarvis.governance.engine import GovernanceEngine
 from jarvis.memory.store import MemoryStore
 from jarvis.context.assembler import assemble_context
 from jarvis.promotion.pipeline import run_promotion_pipeline
+from jarvis.will.models import Goal, GoalState, Will
+from jarvis.will.manager import GoalManager
+from jarvis.will.loader import WillLoader
 
 
 _cleanup_paths = []
@@ -91,10 +94,18 @@ def test_end_to_end_context_assembly():
     identity = loader.load()
     constitution = loader.load_constitution()
 
+    will_obj = Will(
+        active_goal=Goal(id="g1", description="Build Will system", priority="high", state=GoalState.active),
+        current_goals=[
+            Goal(id="g1", description="Build Will system", priority="high", state=GoalState.active),
+            Goal(id="g2", description="Build Reasoning Loop", priority="normal", state=GoalState.pending),
+        ],
+        history=[],
+    )
     context = assemble_context(
         constitution=constitution,
         identity=identity,
-        will="test will",
+        will=will_obj,
         memories=[],
         knowledge=[],
         query="hello",

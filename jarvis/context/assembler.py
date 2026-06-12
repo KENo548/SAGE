@@ -2,6 +2,7 @@ from typing import Protocol
 
 from jarvis.identity.models import Identity, Constitution
 from jarvis.memory.schemas import MemoryEntry, KnowledgeEntry
+from jarvis.will.models import Will
 
 
 class Tokenizer(Protocol):
@@ -18,7 +19,7 @@ class WordCountTokenizer:
 def assemble_context(
     constitution: Constitution,
     identity: Identity,
-    will: str | None,
+    will: Will | None,
     memories: list[MemoryEntry],
     knowledge: list[KnowledgeEntry],
     query: str,
@@ -37,7 +38,7 @@ def assemble_context(
     add("soul", soul_text)
 
     if will:
-        add("will", f"<will>\n{will}\n</will>")
+        add("will", _format_will(will))
 
     knowledge_text = _format_knowledge(knowledge)
     add("knowledge", knowledge_text)
@@ -103,6 +104,20 @@ def _format_soul(identity: Identity) -> str:
     if identity.genesis_text:
         lines.append(f"  genesis: {identity.genesis_text[:200]}")
     lines.append("</soul>")
+    return "\n".join(lines)
+
+
+def _format_will(will: Will) -> str:
+    lines = ["<will>"]
+    if will.active_goal:
+        lines.append(f"  active_goal: [{will.active_goal.priority}] {will.active_goal.description}")
+    if will.current_goals:
+        lines.append("  goals:")
+        sorted_goals = sorted(will.current_goals, key=lambda g: ["critical", "high", "normal", "low"].index(g.priority))
+        for g in sorted_goals:
+            marker = " → " if will.active_goal and g.id == will.active_goal.id else "    "
+            lines.append(f"{marker}- [{g.priority}] ({g.state.value}) {g.description}")
+    lines.append("</will>")
     return "\n".join(lines)
 
 

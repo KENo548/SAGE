@@ -1,0 +1,6 @@
+# SAGE Will — Goals
+# Human-readable YAML. Managed by GoalManager.
+# States: pending | active | paused | completed | failed | archived
+
+goals: []
+active_goal_id: null
