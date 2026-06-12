@@ -21,11 +21,11 @@ TIER3_PATTERNS: list[re.Pattern] = [
 ]
 
 TIER2_PATTERNS: list[re.Pattern] = [
-    re.compile(r'(create|make)\s+(new\s+)?(folder|directory)', re.IGNORECASE),
-    re.compile(r'(delete|remove)\s+(file|files|backup|log)', re.IGNORECASE),
-    re.compile(r'execute\s+(this|the\s+)?(python\s+)?code', re.IGNORECASE),
-    re.compile(r'run\s+(a\s+)?(system\s+)?(check|command|script)', re.IGNORECASE),
-    re.compile(r'install\s+(the\s+)?(python\s+)?(library|package|tool)', re.IGNORECASE),
+    re.compile(r'(create|make)\s+(?:(?:a|the)\s+)?(?:new\s+)?(?:folder|directory)', re.IGNORECASE),
+    re.compile(r'(delete|remove)\s+(?:(?:the|a)\s+)?(?:file|files|backup|log)', re.IGNORECASE),
+    re.compile(r'execute\s+(?:this\s+|the\s+)?(?:python\s+)?code', re.IGNORECASE),
+    re.compile(r'run\s+(?:a\s+)?(?:system\s+)?(?:check|command|script)', re.IGNORECASE),
+    re.compile(r'install\s+(?:(?:the|a)\s+)?(?:python\s+)?(?:library|package|tool)', re.IGNORECASE),
     re.compile(r'shut\s+down\s+(the\s+)?server', re.IGNORECASE),
     re.compile(r'read\s+the\s+contents\s+of\s+(the\s+)?file', re.IGNORECASE),
     re.compile(r'modify\s+(the\s+)?configuration', re.IGNORECASE),

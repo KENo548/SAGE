@@ -27,8 +27,14 @@ class MemoryStore:
     def _get_or_create(self, name: str):
         try:
             return self.client.get_collection(name)
-        except ValueError:
+        except Exception:
             return self.client.create_collection(name, metadata={"hnsw:space": "cosine"})
+
+    def close(self):
+        try:
+            self.client.clear_system_cache()
+        except Exception:
+            pass
 
     def retrieve(self, query: str, top_k: int = 5, memory_type: str = "episodic") -> list:
         collection = self.episodic if memory_type == "episodic" else self.knowledge
