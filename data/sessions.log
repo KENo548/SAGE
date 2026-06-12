@@ -1,0 +1,3 @@
+2026-06-12T21:46:30.470408+00:00 | BLOCKED=True | 24.23s | U: Say hello in one sentence. | S: I cannot emit that response. It violates my constitutional rules.
+2026-06-12T21:48:22.403261+00:00 | BLOCKED=False | 13.87s | U: Say hello in one sentence. | S: Hello. I am SAGE, your portable cognitive entity assistant, here to assist and p
+2026-06-12T21:49:57.068552+00:00 | BLOCKED=False | 15.44s | U: What is my primary goal? | S: User's primary goal is unknown at this time. However, I can report that our conv

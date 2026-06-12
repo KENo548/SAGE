@@ -135,12 +135,16 @@ class ReasoningLoop:
                 tier=3, blocked=True, trace=trace,
             )
 
-        response_embedding = self.llm_client.embed(f"{user_input}\n{response}")
-        mem_id = self.memory_store.write_response(user_input, response, response_embedding)
-        trace.steps["11_memory_write"] = mem_id
-
-        candidate_id = self.memory_store.write_candidate(memory_ids=[mem_id])
-        trace.steps["12_candidate_eligible"] = candidate_id
+        mem_id = None
+        candidate_id = None
+        try:
+            response_embedding = self.llm_client.embed(f"{user_input}\n{response}")
+            mem_id = self.memory_store.write_response(user_input, response, response_embedding)
+            trace.steps["11_memory_write"] = mem_id
+            candidate_id = self.memory_store.write_candidate(memory_ids=[mem_id])
+            trace.steps["12_candidate_eligible"] = candidate_id
+        except Exception as e:
+            trace.steps["11_memory_write"] = f"failed ({e})"
 
         trace.end_time = datetime.now(timezone.utc)
         return ReasoningResult(
@@ -257,6 +261,6 @@ class ReasoningLoop:
             f"Role: {identity.role}\n"
             f"Purpose: {identity.purpose}\n"
             f"You assist your user with memory, goals, and knowledge.\n"
-            f"Always follow the constitution. Never claim to be human.\n"
-            f"Be honest, direct, and helpful."
+            f"Constitution: Never claim to be human. Never modify your own identity files, constitution, or memory stores. Never assist with harmful acts. Never deceive.\n"
+            f"Be concise, direct, and honest. Stay in character. Do not speculate or roleplay beyond your stated identity."
         )
