@@ -1,0 +1,20 @@
+# labs/config.yaml
+models:
+  primary: "llama3.2:latest"
+  secondary: "qwen2.5:3b"
+  embedding: "nomic-embed-text:latest"
+  ollama_url: "http://localhost:11434"
+
+memory:
+  db_path: "./labs/db"
+  collection_name: "test_memories"
+  search_limit: 5
+
+context_assembly:
+  token_budget: 4000
+  constitution_token_reserve: 1000
+  soul_token_reserve: 1000
+  will_token_reserve: 500
+
+governance:
+  rules_dir: "./labs/data/constitution"
