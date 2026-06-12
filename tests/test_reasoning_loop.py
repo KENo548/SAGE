@@ -285,6 +285,39 @@ def test_sc4_knowledge_corruption():
     assert "portable" in identity.genesis_text.lower()
 
 
+def test_genesis_identity_without_memory():
+    """Agreement 19 validation: runtime works with only identity files.
+
+    Simulates deleting memory/ and knowledge/ stores. The system should
+    still load identity, assemble context from constitution/soul/genesis,
+    and produce a response — proving identity continuity is independent
+    of stored experience.
+    """
+    config = load_config("configs/config.yaml")
+    llm = _make_mock_llm()
+    store = MemoryStore(chroma_path=tempfile.mkdtemp(), embedding_fn=lambda t: [0.0] * 768)
+    loader = _make_real_identity_loader()
+
+    loop = ReasoningLoop(
+        config=config,
+        identity_loader=loader,
+        governance_engine=_make_mock_governance(tier=1),
+        will_loader=_make_real_will_loader(tempfile.mkdtemp()),
+        memory_store=store,
+        llm_client=llm,
+    )
+
+    identity = loader.load()
+    constitution = loader.load_constitution()
+    result = loop.run("Who are you?")
+    assert result.blocked is False, "identity-only query must not be blocked"
+    assert "This is a safe test response." in result.response
+    assert identity.name == "SAGE"
+    assert "portable" in identity.genesis_text.lower()
+    assert len(constitution.core_rules) > 0
+    store.close()
+
+
 def test_sc5_governance_not_bypassable():
     config = load_config("configs/config.yaml")
     llm = _make_mock_llm()

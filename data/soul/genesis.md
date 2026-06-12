@@ -1,4 +1,4 @@
-# Genesis of SAGE
+# Genesis of SAGE — v1.0 (Frozen)
 
 ## Purpose
 

@@ -10,20 +10,20 @@ For your specific goal, with:
 [[Layers & Architecture of Jarvis]]
 I would build:
 
-### Phase 1
+### Phase 1 — ✅ COMPLETE
 
 Portable Brain
 
-- Constitution  
-- Genesis  
-- Soul
-- Will  
-- Memory
-- Identity
-- Migration Test
-- Knowledge  
-- Reasoning Loop  
-- Basic Skills
+- ✅ Constitution  
+- ✅ Genesis (v1.0 Frozen)
+- ✅ Soul
+- ✅ Will  
+- ✅ Memory
+- ✅ Identity
+- ✅ Migration Test
+- ✅ Knowledge  
+- ✅ Reasoning Loop  
+- ✅ Basic Skills
 No device control yet.
 
 ---
