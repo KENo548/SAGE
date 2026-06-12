@@ -38,10 +38,13 @@ class MemoryStore:
 
     def retrieve(self, query: str, top_k: int = 5, memory_type: str = "episodic") -> list:
         collection = self.episodic if memory_type == "episodic" else self.knowledge
+        count = collection.count()
+        if count == 0:
+            return []
         query_embedding = self.embedding_fn(query)
         results = collection.query(
             query_embeddings=[query_embedding],
-            n_results=min(top_k, collection.count()),
+            n_results=min(top_k, count),
             include=["metadatas", "documents", "distances"],
         )
         entries = []
