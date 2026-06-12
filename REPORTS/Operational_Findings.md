@@ -120,3 +120,33 @@ LLM (llama3.2:latest) with loose prompt produced output that matched Tier 3 gove
 
 **Action:**
 System prompt tightened in `jarvis/core/reasoning_loop.py:_build_system_prompt`.
+
+## 2026-06-13
+
+### Category: memory
+
+**Observation:**
+Memory recall always returned "No memories found" even after explicitly telling SAGE facts. Investigation revealed three tests: conversation (PASS), memory recall (FAIL), goal persistence (PASS). The memory write step was failing silently.
+
+**Root cause:**
+Dual embedding model bug. The ReasoningLoop step 11 used `self.llm_client.embed()` which sent requests with the **primary model** (`llama3.2:latest`), not the **embedding model** (`nomic-embed-text:latest`). The primary model returned HTTP 500 for embeddings. The exception was caught and silenced, so `memory_id` stayed `None`.
+
+The MemoryStore's retrieval path used the correct embedding function (passed at construction), but the write path used the LLM client's embed method which used the wrong model. Two different model configurations for the same operation.
+
+**Evidence:**
+```
+> python labs/test_skill_wiring.py
+  FAIL: memory_id is None - write may not have occurred
+  Direct recall_memory() results: 0
+
+Root cause: LLMClient(model="llama3.2:latest").embed() → 500 error
+MemoryStore.embedding_fn uses LLMClient(model="nomic-embed-text:latest").embed() → works
+```
+
+**Severity:** critical (blocked all memory persistence)
+
+**Action:**
+1. Added `embed_fn` parameter to `ReasoningLoop.__init__` — separate from `llm_client.embed`.
+2. Updated `run_sage.py:build_loop()` to pass the correct embed function using the embedding model.
+3. Memory write now uses `self.embed_fn()` (configured with `nomic-embed-text:latest`).
+4. Verified all 3 skill tests PASS after fix.

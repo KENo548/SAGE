@@ -81,6 +81,7 @@ def build_loop():
         will_loader=will_loader,
         memory_store=memory_store,
         llm_client=llm_client,
+        embed_fn=_make_embed_fn(config),
     )
 
 

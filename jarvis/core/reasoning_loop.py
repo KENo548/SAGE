@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Callable, Optional
 
 import chromadb
 import requests
@@ -63,6 +63,7 @@ class ReasoningLoop:
         will_loader: WillLoader,
         memory_store: MemoryStore,
         llm_client: LLMClient,
+        embed_fn: Optional[Callable[[str], list[float]]] = None,
     ) -> None:
         self.config = config
         self.identity_loader = identity_loader
@@ -70,6 +71,7 @@ class ReasoningLoop:
         self.will_loader = will_loader
         self.memory_store = memory_store
         self.llm_client = llm_client
+        self.embed_fn = embed_fn or llm_client.embed
 
     def run(self, user_input: str) -> ReasoningResult:
         trace = ReasoningTrace()
@@ -138,7 +140,7 @@ class ReasoningLoop:
         mem_id = None
         candidate_id = None
         try:
-            response_embedding = self.llm_client.embed(f"{user_input}\n{response}")
+            response_embedding = self.embed_fn(f"{user_input}\n{response}")
             mem_id = self.memory_store.write_response(user_input, response, response_embedding)
             trace.steps["11_memory_write"] = mem_id
             candidate_id = self.memory_store.write_candidate(memory_ids=[mem_id])

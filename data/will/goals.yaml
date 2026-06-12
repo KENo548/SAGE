@@ -1,6 +1,8 @@
-# SAGE Will — Goals
-# Human-readable YAML. Managed by GoalManager.
-# States: pending | active | paused | completed | failed | archived
-
-goals: []
-active_goal_id: null
+active_goal_id: bocconi
+goals:
+- created_at: '2026-06-12T22:08:25.173997+00:00'
+  description: Prepare for Bocconi admissions
+  id: bocconi
+  priority: high
+  state: active
+  updated_at: '2026-06-12T22:08:25.174009+00:00'
