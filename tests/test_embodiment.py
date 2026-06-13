@@ -6,7 +6,7 @@ import numpy as np
 
 from jarvis.embodiment.microphone import record_toggle
 from jarvis.embodiment.stt import STTEngine
-from jarvis.embodiment.tts import TTSEngine, _split_sentences
+from jarvis.embodiment.tts_backends.piper import PiperBackend, _split_sentences
 
 
 def test_split_sentences_basic():
@@ -54,7 +54,7 @@ def test_stt_engine_transcribe(mock_whisper):
 def test_tts_engine_missing_voice():
     bad_dir = tempfile.mkdtemp()
     try:
-        TTSEngine(voice_name="nonexistent", voice_dir=bad_dir)
+        PiperBackend(voice_name="nonexistent", voice_dir=bad_dir)
         assert False, "Should have raised FileNotFoundError"
     except FileNotFoundError:
         pass
@@ -93,6 +93,7 @@ def test_voice_conversation_run_one_text_blocked():
     mock_result.response = "I cannot process this."
     mock_result.blocked = True
     mock_result.tier = 3
+    mock_result.capability_id = ""
     mock_loop.run.return_value = mock_result
 
     conv = VoiceConversation(

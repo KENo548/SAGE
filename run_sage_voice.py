@@ -19,7 +19,7 @@ from jarvis.will.loader import WillLoader
 from jarvis.core.reasoning_loop import ReasoningLoop
 
 from jarvis.embodiment.stt import STTEngine
-from jarvis.embodiment.tts import TTSEngine
+from jarvis.embodiment.tts import clean_for_speech, create_tts_engine
 from jarvis.embodiment.microphone import record_toggle
 from jarvis.embodiment.conversation import VoiceConversation
 
@@ -69,7 +69,7 @@ def build_sage() -> ReasoningLoop:
 def voice_mode(no_tts: bool = False) -> None:
     print("SAGE - Voice Session")
     print("Press ENTER to record, press ENTER again to stop.")
-    print("Type /quit to exit.")
+    print("Type /help for commands, /quit to exit.")
     print()
 
     loop = build_sage()
@@ -80,7 +80,7 @@ def voice_mode(no_tts: bool = False) -> None:
 
     print(f"Runtime: {report.message}")
     stt = STTEngine("tiny")
-    tts = None if no_tts else TTSEngine()
+    tts = None if no_tts else create_tts_engine()
     conv = VoiceConversation(loop=loop, stt_engine=stt, tts_engine=tts)
 
     try:
@@ -89,7 +89,10 @@ def voice_mode(no_tts: bool = False) -> None:
             if user_input == "/quit":
                 break
             if user_input:
-                conv.run_one_text(user_input)
+                if user_input.startswith("/"):
+                    print(conv.handle_command(user_input))
+                else:
+                    conv.run_one_text(user_input)
                 continue
 
             audio = record_toggle()
@@ -106,7 +109,7 @@ def voice_mode(no_tts: bool = False) -> None:
 
 def text_mode() -> None:
     print("SAGE - Text Session (no voice)")
-    print("Type /quit to exit.")
+    print("Type /help for commands, /quit to exit.")
     print()
 
     loop = build_sage()
@@ -125,7 +128,10 @@ def text_mode() -> None:
             if user_input == "/quit":
                 break
             if user_input:
-                conv.run_one_text(user_input)
+                if user_input.startswith("/"):
+                    print(conv.handle_command(user_input))
+                else:
+                    conv.run_one_text(user_input)
     except (EOFError, KeyboardInterrupt):
         print()
 

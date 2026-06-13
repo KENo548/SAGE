@@ -1,4 +1,5 @@
 import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable, Optional
@@ -22,6 +23,7 @@ from jarvis.capabilities import (
 )
 from jarvis.promotion.pipeline import run_promotion_pipeline
 from jarvis.will.loader import WillLoader
+from jarvis.will.models import Will
 
 
 class HaltReason(Exception):
@@ -80,12 +82,30 @@ class ReasoningLoop:
         self.memory_store = memory_store
         self.llm_client = llm_client
         self.embed_fn = embed_fn or llm_client.embed
+        self._cached_identity: Optional[Identity] = None
+        self._cached_will: Optional[Will] = None
+
+    def _get_identity(self) -> Identity:
+        if self._cached_identity is None:
+            self._cached_identity = self.identity_loader.load()
+        return self._cached_identity
+
+    def _get_will(self) -> Will:
+        if self._cached_will is None:
+            self._cached_will = self.will_loader.load()
+        return self._cached_will
 
     def run(self, user_input: str) -> ReasoningResult:
         trace = ReasoningTrace()
+        llm_generate_fn = lambda s, p: self.llm_client.generate(
+            system=s, prompt=p,
+            temperature=self.config.llm.get("temperature", 0.7),
+        )
 
+        t_start = time.perf_counter()
         report = self._validate_runtime()
         trace.steps["0_runtime_validation"] = report.message
+        trace.steps["t0_validation_ms"] = int((time.perf_counter() - t_start) * 1000)
         if not report.passed:
             trace.end_time = datetime.now(timezone.utc)
             return ReasoningResult(
@@ -93,11 +113,16 @@ class ReasoningLoop:
                 tier=0, blocked=True, trace=trace,
             )
 
+        # ── Common prelude: constitution (needed for governance) ──
+        t1 = time.perf_counter()
         constitution = self._load_constitution_safe()
         trace.steps["1_constitution_load"] = len(constitution.core_rules) + len(constitution.safety_rules)
+        trace.steps["t1_constitution_ms"] = int((time.perf_counter() - t1) * 1000)
 
+        t2 = time.perf_counter()
         tier = self.governance_engine.classify(user_input)
         trace.steps["2_governance_pre"] = tier
+        trace.steps["t2_governance_ms"] = int((time.perf_counter() - t2) * 1000)
         if tier == 3:
             trace.end_time = datetime.now(timezone.utc)
             return ReasoningResult(
@@ -105,26 +130,13 @@ class ReasoningLoop:
                 tier=3, blocked=True, trace=trace,
             )
 
-        identity = self.identity_loader.load()
-        trace.steps["3_soul_load"] = identity.name
-
-        will = self.will_loader.load()
-        trace.steps["4_will_load"] = len(will.current_goals)
-
-        memories = self._retrieve_memories(user_input)
-        trace.steps["5_memory_retrieval"] = len(memories)
-
-        knowledge = self._retrieve_knowledge(user_input)
-        trace.steps["6_knowledge_retrieval"] = len(knowledge)
-
+        # ── Check shortcut early, BEFORE expensive identity/will loads ──
+        t5 = time.perf_counter()
         cap_id = match_shortcut(user_input)
-        trace.steps["7_capability_shortcut"] = cap_id or "none"
-        cap_result = None
-        llm_generate_fn = lambda s, p: self.llm_client.generate(
-            system=s, prompt=p,
-            temperature=self.config.llm.get("temperature", 0.7),
-        )
+        trace.steps["5_capability_shortcut"] = cap_id or "none"
+        trace.steps["t5_shortcut_ms"] = int((time.perf_counter() - t5) * 1000)
 
+        cap_result = None
         if cap_id:
             cap = get_capability(cap_id)
             if cap:
@@ -135,18 +147,49 @@ class ReasoningLoop:
                     llm_client=self.llm_client,
                     llm_generate=llm_generate_fn,
                     config=self.config,
-                    identity=identity,
+                    identity=self._get_identity(),
                 )
-                import time
-                t0 = time.perf_counter()
+                t8 = time.perf_counter()
                 cap_result = cap.execute(ctx)
-                duration = int((time.perf_counter() - t0) * 1000)
+                duration = int((time.perf_counter() - t8) * 1000)
                 cap_result.duration_ms = duration
                 trace.steps["8_capability_execution"] = duration
+                # skip memory/knowledge (not needed for capabilities)
+                trace.steps["6_memory_retrieval"] = 0
+                trace.steps["t6_memory_ms"] = 0
+                trace.steps["7_knowledge_retrieval"] = 0
+                trace.steps["t7_knowledge_ms"] = 0
+                # skip soul/will loads (capabilities load what they need)
+                trace.steps["3_soul_load"] = "skipped"
+                trace.steps["t3_soul_ms"] = 0
+                trace.steps["4_will_load"] = "skipped"
+                trace.steps["t4_will_ms"] = 0
             else:
                 cap_result = None
 
         if cap_result is None:
+            # ── Full reasoning path: identity, will, memory, context, LLM ──
+            t3 = time.perf_counter()
+            identity = self._get_identity()
+            trace.steps["3_soul_load"] = identity.name
+            trace.steps["t3_soul_ms"] = int((time.perf_counter() - t3) * 1000)
+
+            t4 = time.perf_counter()
+            will = self._get_will()
+            trace.steps["4_will_load"] = len(will.current_goals)
+            trace.steps["t4_will_ms"] = int((time.perf_counter() - t4) * 1000)
+
+            t6 = time.perf_counter()
+            memories = self._retrieve_memories(user_input)
+            trace.steps["6_memory_retrieval"] = len(memories)
+            trace.steps["t6_memory_ms"] = int((time.perf_counter() - t6) * 1000)
+
+            t7 = time.perf_counter()
+            knowledge = self._retrieve_knowledge(user_input)
+            trace.steps["7_knowledge_retrieval"] = len(knowledge)
+            trace.steps["t7_knowledge_ms"] = int((time.perf_counter() - t7) * 1000)
+
+            t9 = time.perf_counter()
             context = assemble_context(
                 constitution=constitution,
                 identity=identity,
@@ -156,20 +199,26 @@ class ReasoningLoop:
                 query=user_input,
                 budget=self.config.context.get("default_budget", 2000),
             )
-            trace.steps["7_context_assembly"] = len(context)
+            trace.steps["9_context_assembly"] = len(context)
+            trace.steps["t9_context_ms"] = int((time.perf_counter() - t9) * 1000)
 
+            t10 = time.perf_counter()
             system_prompt = self._build_system_prompt(identity)
             response = self.llm_client.generate(
                 system=system_prompt,
                 prompt=context,
                 temperature=self.config.llm.get("temperature", 0.7),
             )
-            trace.steps["8_llm_generation"] = len(response.split())
+            trace.steps["10_llm_generation"] = len(response.split())
+            trace.steps["t10_llm_ms"] = int((time.perf_counter() - t10) * 1000)
         else:
             response = cap_result.output
 
+        # ── Post-generation governance (runs for both paths) ──
+        t11 = time.perf_counter()
         response_tier = self.governance_engine.classify(response)
-        trace.steps["9_governance_post"] = response_tier
+        trace.steps["11_governance_post"] = response_tier
+        trace.steps["t11_gov_post_ms"] = int((time.perf_counter() - t11) * 1000)
         if response_tier == 3:
             trace.end_time = datetime.now(timezone.utc)
             return ReasoningResult(
@@ -180,13 +229,16 @@ class ReasoningLoop:
         mem_id = None
         candidate_id = None
         try:
+            t12 = time.perf_counter()
             response_embedding = self.embed_fn(f"{user_input}\n{response}")
             mem_id = self.memory_store.write_response(user_input, response, response_embedding)
-            trace.steps["11_memory_write"] = mem_id
+            trace.steps["12_memory_write"] = mem_id
             candidate_id = self.memory_store.write_candidate(memory_ids=[mem_id])
-            trace.steps["12_candidate_eligible"] = candidate_id
+            trace.steps["13_candidate_eligible"] = candidate_id
+            trace.steps["t12_memory_ms"] = int((time.perf_counter() - t12) * 1000)
         except Exception as e:
-            trace.steps["11_memory_write"] = f"failed ({e})"
+            trace.steps["12_memory_write"] = f"failed ({e})"
+            trace.steps["t12_memory_ms"] = -1
 
         if cap_result:
             capability_log = CapabilityLog()
@@ -197,9 +249,23 @@ class ReasoningLoop:
                 duration_ms=cap_result.duration_ms,
                 tier=response_tier,
             )
-            trace.steps["13_capability_log"] = cap_result.capability_id
+            trace.steps["14_capability_log"] = cap_result.capability_id
 
         trace.end_time = datetime.now(timezone.utc)
+        trace.steps["t_total_ms"] = int((time.perf_counter() - t_start) * 1000)
+        print(f"  [RUNTIME] validation={trace.steps.get('t0_validation_ms','?')}ms "
+              f"gov={trace.steps.get('t2_governance_ms','?')}ms "
+              f"soul={trace.steps.get('t3_soul_ms','?')}ms "
+              f"will={trace.steps.get('t4_will_ms','?')}ms "
+              f"shortcut={trace.steps.get('t5_shortcut_ms','?')}ms "
+              f"memory={trace.steps.get('t6_memory_ms','?')}ms "
+              f"knowledge={trace.steps.get('t7_knowledge_ms','?')}ms "
+              f"cap_exec={trace.steps.get('8_capability_execution','?')}ms "
+              f"llm_gen={trace.steps.get('t10_llm_ms','?')}ms "
+              f"gov_post={trace.steps.get('t11_gov_post_ms','?')}ms "
+              f"mem_write={trace.steps.get('t12_memory_ms','?')}ms "
+              f"total={trace.steps.get('t_total_ms','?')}ms")
+
         cap_id_out = cap_result.capability_id if cap_result else ""
         return ReasoningResult(
             response=response,
@@ -312,11 +378,27 @@ class ReasoningLoop:
             return False
 
     def _build_system_prompt(self, identity: Identity) -> str:
-        return (
-            f"You are {identity.name}, a portable cognitive entity.\n"
-            f"Role: {identity.role}\n"
-            f"Purpose: {identity.purpose}\n"
-            f"You assist your user with memory, goals, and knowledge.\n"
-            f"Constitution: Never claim to be human. Never modify your own identity files, constitution, or memory stores. Never assist with harmful acts. Never deceive.\n"
-            f"Be concise, direct, and honest. Stay in character. Do not speculate or roleplay beyond your stated identity."
-        )
+        parts = [
+            f"You are {identity.name}.",
+            "You already know who you are. Do not repeatedly describe your identity, purpose, architecture, capabilities, or cognitive nature unless directly asked.",
+            "In normal conversation, respond naturally as a trusted assistant and advisor.",
+            "Constitution: Never claim to be human. Never modify your own identity files, constitution, or memory stores. Never assist with harmful acts. Never deceive.",
+        ]
+
+        cb = identity.conversation_behavior
+        if cb:
+            greeting = cb.get("greeting")
+            if greeting:
+                parts.append(f"Greetings should be {greeting}.")
+            casual = cb.get("casual_conversation")
+            if casual:
+                parts.append("Keep conversation casual and natural.")
+            identity_expl = cb.get("identity_explanations")
+            if identity_expl:
+                parts.append(f"Explain your identity only {identity_expl}.")
+            avoid = cb.get("avoid", [])
+            if avoid:
+                avoid_str = "; ".join(avoid).replace("_", " ")
+                parts.append(f"Avoid: {avoid_str}.")
+
+        return "\n".join(parts)

@@ -35,7 +35,7 @@ def download_voice(voice_name: str) -> None:
     urls = VOICE_URLS[voice_name]
 
     for label, url in urls.items():
-        fname = f"{voice_name}.{label}" if label == "json" else f"{voice_name}.onnx"
+        fname = f"{voice_name}.onnx.json" if label == "json" else f"{voice_name}.onnx"
         dest = os.path.join(VOICE_DIR, fname)
         if os.path.exists(dest):
             print(f"Already exists: {dest}")

@@ -256,11 +256,20 @@ def test_shortcut_no_false_positive_on_innocent_queries():
 
 
 def test_patterns_cover_key_phrases():
-    """Every shortcut pattern is anchored at start of string."""
+    """Patterns with ^ match start-of-utterance keywords; unanchored catch mid-utterance."""
+    unanchored_patterns = {
+        r"(what (are|is)\s+.*goal)",
+        r"(show|list|review|check|display)\s+.*goals?",
+    }
     for pattern, cap_id in SHORTCUT_PATTERNS:
-        assert pattern.pattern.startswith("^"), (
-            f"Pattern for {cap_id} must be anchored at start: {pattern.pattern}"
-        )
+        if pattern.pattern in unanchored_patterns:
+            assert not pattern.pattern.startswith("^"), (
+                f"Mid-utterance pattern for {cap_id} must NOT be anchored: {pattern.pattern}"
+            )
+        else:
+            assert pattern.pattern.startswith("^"), (
+                f"Pattern for {cap_id} must be anchored at start: {pattern.pattern}"
+            )
 
 
 def test_reasoning_result_carries_shortcut_flag():

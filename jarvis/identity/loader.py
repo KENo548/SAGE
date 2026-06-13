@@ -45,6 +45,7 @@ class IdentityLoader:
             quirks=personality_data.get("quirks", []),
             values=personality_data.get("values", []),
             limitations=personality_data.get("limitations", []),
+            conversation_behavior=personality_data.get("conversation_behavior", {}),
             soul=soul_data,
             genesis_text=genesis_text,
         )

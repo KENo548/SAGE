@@ -50,3 +50,8 @@ retrieval:
     unavailable: degrade_gracefully
   knowledge:
     unavailable: degrade_gracefully
+
+tts:
+  backend: kokoro
+  voice: af_bella
+  speed: 1.0

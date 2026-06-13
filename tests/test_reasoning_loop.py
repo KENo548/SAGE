@@ -113,19 +113,19 @@ def test_full_flow_success():
         memory_store=store,
         llm_client=llm,
     )
-    result = loop.run("what is the goal?")
+    result = loop.run("hello there")
     assert result.blocked is False
     assert result.response == "This is a safe test response."
     assert result.memory_id is not None
     assert result.candidate_id is not None
     assert result.trace is not None
     assert "0_runtime_validation" in result.trace.steps
-    assert "7_capability_shortcut" in result.trace.steps
-    assert "8_llm_generation" in result.trace.steps
-    assert "11_memory_write" in result.trace.steps
-    assert "12_candidate_eligible" in result.trace.steps
+    assert "5_capability_shortcut" in result.trace.steps
+    assert "10_llm_generation" in result.trace.steps
+    assert "12_memory_write" in result.trace.steps
+    assert "13_candidate_eligible" in result.trace.steps
 
-    retrieved = store.retrieve("what is the goal?", top_k=5)
+    retrieved = store.retrieve("hello there", top_k=5)
     assert len(retrieved) > 0
     store.close()
 
@@ -187,7 +187,9 @@ def test_will_is_loaded():
     )
     result = loop.run("what is my goal?")
     assert result.trace is not None
-    assert result.trace.steps.get("4_will_load", 0) >= 1
+    # "what is my goal?" matches goal_review shortcut, so will is loaded
+    # inside the capability rather than a pre-load step
+    assert result.trace.steps.get("5_capability_shortcut") == "goal_review"
     store.close()
 
 

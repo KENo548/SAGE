@@ -2,13 +2,16 @@ import re
 from typing import Optional
 
 SHORTCUT_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"^(what are|show|list|review|check|display)\s+.*goals?", re.IGNORECASE), "goal_review"),
-    (re.compile(r"^(what are|show|list|review|check|display)\s+.*goal", re.IGNORECASE), "goal_review"),
+    # Anchored patterns first (more specific)
+    (re.compile(r"^(summarize|give me a summary|in short|tl;?dr)\s+", re.IGNORECASE), "summarize"),
     (re.compile(r"^(what do you remember|recall|do you know|what.*know about)", re.IGNORECASE), "memory_recall"),
     (re.compile(r"^tell me about\s+", re.IGNORECASE), "memory_recall"),
     (re.compile(r"^(lookup|search|find|query)\s+", re.IGNORECASE), "knowledge_lookup"),
     (re.compile(r"^what do you know about\s+", re.IGNORECASE), "knowledge_lookup"),
-    (re.compile(r"^(summarize|give me a summary|in short|tl;?dr)\s+", re.IGNORECASE), "summarize"),
+    # Un-anchored patterns (catch compound queries: "Hello, what are my goals?")
+    (re.compile(r"(what (are|is)\s+.*goal)", re.IGNORECASE), "goal_review"),
+    (re.compile(r"(show|list|review|check|display)\s+.*goals?", re.IGNORECASE), "goal_review"),
+    (re.compile(r"^my (current|active)?\s*goals?", re.IGNORECASE), "goal_review"),
 ]
 
 

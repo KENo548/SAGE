@@ -15,6 +15,7 @@ class Identity:
     quirks: list[str] = field(default_factory=list)
     values: list[str] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
+    conversation_behavior: dict = field(default_factory=dict)
     soul: dict = field(default_factory=dict)
     genesis_text: str = ""
 
