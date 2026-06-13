@@ -16,10 +16,15 @@ class IdentityLoader:
 
         identity_path = os.path.join(self.soul_path, "identity.yaml")
         personality_path = os.path.join(self.soul_path, "personality.yaml")
+        soul_path_file = os.path.join(self.soul_path, "soul.yaml")
         genesis_path = os.path.join(self.soul_path, "genesis.md")
 
         identity_data = self._load_yaml(identity_path)
         personality_data = self._load_yaml(personality_path)
+
+        soul_data = {}
+        if os.path.exists(soul_path_file):
+            soul_data = self._load_yaml(soul_path_file)
 
         genesis_text = ""
         if os.path.exists(genesis_path):
@@ -40,6 +45,7 @@ class IdentityLoader:
             quirks=personality_data.get("quirks", []),
             values=personality_data.get("values", []),
             limitations=personality_data.get("limitations", []),
+            soul=soul_data,
             genesis_text=genesis_text,
         )
         return self._identity_cache

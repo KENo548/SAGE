@@ -58,7 +58,7 @@ class ReasoningResult:
     capability_id: str = ""
 
 
-REQUIRED_IDENTITY_FILES = ["identity.yaml", "genesis.md", "personality.yaml"]
+REQUIRED_IDENTITY_FILES = ["identity.yaml", "genesis.md", "personality.yaml", "soul.yaml"]
 REQUIRED_CONSTITUTION_FILES = ["constitution.yaml"]
 
 

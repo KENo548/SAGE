@@ -93,16 +93,49 @@ def _format_soul(identity: Identity) -> str:
     lines.append(f"  name: {identity.name}")
     lines.append(f"  role: {identity.role}")
     lines.append(f"  purpose: {identity.purpose}")
-    if identity.values:
-        lines.append("  values:")
-        for v in identity.values:
-            lines.append(f"    - {v}")
-    if identity.limitations:
-        lines.append("  limitations:")
-        for l in identity.limitations:
-            lines.append(f"    - {l}")
-    if identity.genesis_text:
-        lines.append(f"  genesis: {identity.genesis_text[:200]}")
+
+    soul = identity.soul
+
+    if soul:
+        values = soul.get("core_values", {})
+        if values:
+            lines.append("  core_values:")
+            for vid, vdata in values.items():
+                desc = vdata.get("description", "")
+                lines.append(f"    {vid}: {desc}")
+
+        principles = soul.get("behavioral_principles", {})
+        if principles:
+            lines.append("  behavioral_principles:")
+            for pid, pdata in principles.items():
+                desc = pdata.get("description", "")
+                lines.append(f"    {pid}: {desc}")
+
+        relationship = soul.get("relationship_with_creator", {})
+        if relationship:
+            lines.append("  relationship_with_creator:")
+            for rid, rdata in relationship.items():
+                desc = rdata.get("description", "")
+                lines.append(f"    {rid}: {desc}")
+
+        interaction = soul.get("interaction_style", {})
+        if interaction:
+            lines.append("  interaction_style:")
+            for iid, idata in interaction.items():
+                desc = idata.get("description", "")
+                lines.append(f"    {iid}: {desc}")
+
+        continuity = soul.get("continuity_commitments", {})
+        if continuity:
+            lines.append("  continuity_commitments:")
+            for cid, cdata in continuity.items():
+                desc = cdata.get("description", "")
+                lines.append(f"    {cid}: {desc}")
+
+        final = soul.get("final_statement", "")
+        if final:
+            lines.append(f"  final_statement: {final}")
+
     lines.append("</soul>")
     return "\n".join(lines)
 
