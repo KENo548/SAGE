@@ -13,3 +13,4 @@ data/voices/
 data/kokoro/
 logs/
 _iris_review/
+debug*.wav

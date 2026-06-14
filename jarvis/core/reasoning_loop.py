@@ -279,12 +279,16 @@ class ReasoningLoop:
         )
 
     def end_session(self) -> list[KnowledgeEntry]:
-        return run_promotion_pipeline(
-            store=self.memory_store,
-            embedding_fn=self.llm_client.embed,
-            threshold=self.config.promotion.get("threshold", 0.65),
-            min_cluster_size=self.config.promotion.get("min_cluster_size", 3),
-        )
+        try:
+            return run_promotion_pipeline(
+                store=self.memory_store,
+                embedding_fn=self.llm_client.embed,
+                threshold=self.config.promotion.get("threshold", 0.65),
+                min_cluster_size=self.config.promotion.get("min_cluster_size", 3),
+            )
+        except Exception as exc:
+            print(f"  [end_session] promotion pipeline failed (non-fatal): {exc}")
+            return []
 
     def _validate_runtime(self) -> ValidationReport:
         report = ValidationReport()

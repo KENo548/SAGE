@@ -34,6 +34,14 @@ class TTSBackend(ABC):
         samples, rate = self.synthesize(text)
         if len(samples) == 0:
             return
+        import wave
+        import numpy as np
+        samples_int16 = (samples * 32767).astype(np.int16)
+        with wave.open("debug.wav", "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(rate)
+            wf.writeframes(samples_int16.tobytes())
         t_s = time.perf_counter()
         sd.play(samples, samplerate=rate)
         if block:
