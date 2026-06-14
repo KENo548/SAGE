@@ -51,7 +51,4 @@ retrieval:
   knowledge:
     unavailable: degrade_gracefully
 
-tts:
-  backend: kokoro
-  voice: af_bella
-  speed: 1.0
+# tts — Kokoro (only backend, voice af_heart hardcoded)

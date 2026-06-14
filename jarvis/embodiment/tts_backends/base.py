@@ -1,8 +1,25 @@
+import re
 from abc import ABC, abstractmethod
 from typing import Optional
 
 import numpy as np
 import sounddevice as sd
+
+
+def clean_for_speech(text: str) -> str:
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"`(.+?)`", r"\1", text)
+    text = re.sub(r"^[#*>\-]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"[\[\](){}<>]", "", text)
+    text = re.sub(r"```[\s\S]*?```", "", text)
+    text = re.sub(r"---+\n?", "", text)
+    text = re.sub(r"\n{2,}", ". ", text)
+    return text.strip()
+
+
+def _split_sentences(text: str) -> list[str]:
+    raw = re.split(r"(?<=[.!?])\s+", text)
+    return [s.strip() for s in raw if s.strip()]
 
 
 class TTSBackend(ABC):

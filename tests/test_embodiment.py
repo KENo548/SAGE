@@ -6,7 +6,7 @@ import numpy as np
 
 from jarvis.embodiment.microphone import record_toggle
 from jarvis.embodiment.stt import STTEngine
-from jarvis.embodiment.tts_backends.piper import PiperBackend, _split_sentences
+from jarvis.embodiment.tts_backends.base import _split_sentences
 
 
 def test_split_sentences_basic():
@@ -49,15 +49,6 @@ def test_stt_engine_transcribe(mock_whisper):
     result = engine.transcribe(audio)
     assert result == "hello world"
     mock_model.transcribe.assert_called_once()
-
-
-def test_tts_engine_missing_voice():
-    bad_dir = tempfile.mkdtemp()
-    try:
-        PiperBackend(voice_name="nonexistent", voice_dir=bad_dir)
-        assert False, "Should have raised FileNotFoundError"
-    except FileNotFoundError:
-        pass
 
 
 def test_voice_conversation_run_one_text():
@@ -142,3 +133,28 @@ def test_voice_conversation_empty_input():
     assert result == ""
     result = conv.run_one_text("   ")
     assert result == ""
+
+
+def test_voice_conversation_slash_help():
+    from jarvis.embodiment.conversation import VoiceConversation
+
+    conv = VoiceConversation(
+        loop=MagicMock(),
+        stt_engine=MagicMock(),
+        tts_engine=MagicMock(),
+    )
+    result = conv.handle_command("/help")
+    assert "/voice" in result
+    assert "/quit" in result
+
+
+def test_voice_conversation_slash_unknown():
+    from jarvis.embodiment.conversation import VoiceConversation
+
+    conv = VoiceConversation(
+        loop=MagicMock(),
+        stt_engine=MagicMock(),
+        tts_engine=MagicMock(),
+    )
+    result = conv.handle_command("/blah")
+    assert "Unknown command" in result

@@ -8,11 +8,9 @@ from jarvis.core.reasoning_loop import ReasoningLoop
 from jarvis.embodiment.operational_logger import OperationalLogger
 
 
-# ── Help banner ────────────────────────────────────────────────────────
 _SLASH_HELP = """Slash commands:
-  /backend <name>   Switch TTS backend (piper, kokoro)
-  /voice <name>     Switch voice for current backend
-  /voices           List available voices for current backend
+  /voice <name>     Switch Kokoro voice
+  /voices           List available voices
   /help             Show this message
   /quit             Exit the session"""
 
@@ -38,17 +36,12 @@ class VoiceConversation:
             return ""
         return self._process(text, speak=False, stt_ms=0.0)
 
-    # ── Slash commands ─────────────────────────────────────────────────
     def handle_command(self, cmd: str) -> str:
         parts = cmd.strip().split(maxsplit=1)
         verb = parts[0].lower()
 
         if verb == "/help":
             return _SLASH_HELP
-
-        if verb == "/backend":
-            name = parts[1].strip().lower() if len(parts) > 1 else ""
-            return self._switch_backend(name)
 
         if verb == "/voice":
             name = parts[1].strip() if len(parts) > 1 else ""
@@ -59,39 +52,19 @@ class VoiceConversation:
 
         return f"Unknown command: {verb}. Type /help for available commands."
 
-    def _switch_backend(self, name: str) -> str:
-        from jarvis.embodiment.tts import create_tts_backend, list_voices
-
-        if name not in ("piper", "kokoro"):
-            return f"Unknown backend: {name}. Choose piper or kokoro."
-        self.tts = create_tts_backend(name)
-        tag = type(self.tts).__name__.removesuffix("Backend")
-        return f"Switched TTS backend to {tag} (voice: {self._current_voice_name()})."
-
     def _switch_voice(self, name: str) -> str:
-        from jarvis.embodiment.tts import create_tts_backend
+        from jarvis.embodiment.tts import create_tts_engine
 
         if not name:
             return "Usage: /voice <name>. Try /voices to see available options."
-        tag = type(self.tts).__name__.removesuffix("Backend").lower()
-        self.tts = create_tts_backend(tag, voice=name)
+        self.tts = create_tts_engine(voice=name)
         return f"Switched voice to {name}."
 
     def _list_voices(self) -> str:
         from jarvis.embodiment.tts import list_voices
 
-        tag = type(self.tts).__name__.removesuffix("Backend").lower()
-        voices = list_voices(tag)
-        header = f"Available {tag} voices ({len(voices)}):"
-        return header + "\n  " + "\n  ".join(voices)
-
-    def _current_voice_name(self) -> str:
-        tts = self.tts
-        if hasattr(tts, "_voice_name"):
-            return tts._voice_name
-        if hasattr(tts, "_voice"):
-            return getattr(tts, "_voice", "?")
-        return "?"
+        voices = list_voices()
+        return f"Available Kokoro voices ({len(voices)}):\n  " + "\n  ".join(voices)
 
     def _process(
         self, text: str, speak: bool = True, stt_ms: float = 0.0
@@ -115,13 +88,17 @@ class VoiceConversation:
                 blocked=True,
             )
             if speak:
-                self.tts.speak(result.response)
+                msg = result.response
+                print(f"  [DIAG] repr: {repr(msg)}")
+                self.tts.speak(msg)
             return result.response
 
         tts_ms = 0.0
         if speak:
+            msg = result.response
+            print(f"  [DIAG] repr: {repr(msg)}")
             t2 = time.perf_counter()
-            self.tts.speak(result.response)
+            self.tts.speak(msg)
             t3 = time.perf_counter()
             tts_ms = (t3 - t2) * 1000
 

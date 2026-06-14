@@ -5,12 +5,12 @@ from typing import Optional
 
 import numpy as np
 
-from jarvis.embodiment.tts_backends.base import TTSBackend
+from jarvis.embodiment.tts_backends.base import TTSBackend, clean_for_speech
 
 KOKORO_MODEL_DIR = "data/kokoro"
 MODEL_FILE = "kokoro-v1.0.onnx"
 VOICES_FILE = "voices-v1.0.bin"
-DEFAULT_VOICE = "af_bella"
+DEFAULT_VOICE = "af_heart"
 
 
 @dataclass
@@ -57,6 +57,7 @@ class KokoroBackend(TTSBackend):
         return Kokoro(model_path, voices_path)
 
     def synthesize(self, text: str) -> tuple[np.ndarray, int]:
+        text = clean_for_speech(text)
         return self._kokoro.create(
             text,
             voice=self._resolve_voice(),
