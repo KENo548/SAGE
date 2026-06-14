@@ -229,13 +229,19 @@ class ReasoningLoop:
         mem_id = None
         candidate_id = None
         try:
-            t12 = time.perf_counter()
+            t_embed = time.perf_counter()
             response_embedding = self.embed_fn(f"{user_input}\n{response}")
+            embed_ms = int((time.perf_counter() - t_embed) * 1000)
+            t_write = time.perf_counter()
             mem_id = self.memory_store.write_response(user_input, response, response_embedding)
+            write_ms = int((time.perf_counter() - t_write) * 1000)
             trace.steps["12_memory_write"] = mem_id
+            t_cand = time.perf_counter()
             candidate_id = self.memory_store.write_candidate(memory_ids=[mem_id])
+            cand_ms = int((time.perf_counter() - t_cand) * 1000)
             trace.steps["13_candidate_eligible"] = candidate_id
-            trace.steps["t12_memory_ms"] = int((time.perf_counter() - t12) * 1000)
+            trace.steps["t12_memory_ms"] = embed_ms + write_ms + cand_ms
+            print(f"  [mem_write] embed={embed_ms}ms write_response={write_ms}ms write_candidate={cand_ms}ms")
         except Exception as e:
             trace.steps["12_memory_write"] = f"failed ({e})"
             trace.steps["t12_memory_ms"] = -1
@@ -292,33 +298,45 @@ class ReasoningLoop:
 
     def _validate_runtime(self) -> ValidationReport:
         report = ValidationReport()
+        diag: dict[str, float] = {}
 
+        t0 = time.perf_counter()
         report.config_ok = os.path.exists("configs/config.yaml")
+        diag["config"] = (time.perf_counter() - t0) * 1000
 
         soul_dir = self.config.identity.get("soul_path", "data/soul")
         const_dir = self.config.identity.get("constitution_path", "data/constitution")
+        t1 = time.perf_counter()
         report.identity_files_ok = all(
             os.path.exists(os.path.join(soul_dir, f))
             for f in REQUIRED_IDENTITY_FILES
         )
+        diag["identity_files"] = (time.perf_counter() - t1) * 1000
+
+        t2 = time.perf_counter()
         report.constitution_files_ok = all(
             os.path.exists(os.path.join(const_dir, f))
             for f in REQUIRED_CONSTITUTION_FILES
         )
+        diag["const_files"] = (time.perf_counter() - t2) * 1000
 
+        t3 = time.perf_counter()
         try:
             chroma_path = self.config.memory.get("chroma_db_path", "data/chroma_db")
             _ = chromadb.PersistentClient(path=chroma_path)
             report.memory_store_accessible = True
         except Exception:
             report.memory_store_accessible = False
+        diag["chroma_client"] = (time.perf_counter() - t3) * 1000
 
+        t4 = time.perf_counter()
         try:
             url = self.config.models.get("ollama_url", "http://localhost:11434")
             r = requests.get(f"{url}/api/tags", timeout=5)
             report.model_available = r.status_code == 200
         except Exception:
             report.model_available = False
+        diag["ollama_ping"] = (time.perf_counter() - t4) * 1000
 
         report.passed = all([
             report.config_ok,
@@ -342,6 +360,9 @@ class ReasoningLoop:
                 notes.append("model unavailable")
             report.message = f"pass ({', '.join(notes)})" if notes else "pass"
 
+        print(f"  [validate] config={diag['config']:.0f}ms id_files={diag['identity_files']:.0f}ms "
+              f"const_files={diag['const_files']:.0f}ms chroma={diag['chroma_client']:.0f}ms "
+              f"ollama={diag['ollama_ping']:.0f}ms")
         return report
 
     def _load_constitution_safe(self):
