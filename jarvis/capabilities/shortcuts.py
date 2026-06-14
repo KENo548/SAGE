@@ -4,8 +4,7 @@ from typing import Optional
 SHORTCUT_PATTERNS: list[tuple[re.Pattern, str]] = [
     # Anchored patterns first (more specific)
     (re.compile(r"^(summarize|give me a summary|in short|tl;?dr)\s+", re.IGNORECASE), "summarize"),
-    (re.compile(r"^(what do you remember|recall|do you know|what.*know about)", re.IGNORECASE), "memory_recall"),
-    (re.compile(r"^tell me about\s+", re.IGNORECASE), "memory_recall"),
+    (re.compile(r"^(what do you remember|recall|do you remember)\s+", re.IGNORECASE), "memory_recall"),
     (re.compile(r"^(lookup|search|find|query)\s+", re.IGNORECASE), "knowledge_lookup"),
     (re.compile(r"^what do you know about\s+", re.IGNORECASE), "knowledge_lookup"),
     # Un-anchored patterns (catch compound queries: "Hello, what are my goals?")

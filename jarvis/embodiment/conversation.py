@@ -14,14 +14,34 @@ _SLASH_HELP = """Slash commands:
   /help             Show this message
   /quit             Exit the session"""
 
+_RATING_PROMPT = "Rate: [1] Bad [2] Okay [3] Good [Enter = skip] "
+
+_RATING_CATEGORIES = {
+    "1": "STT",
+    "2": "Memory",
+    "3": "Knowledge",
+    "4": "Goal",
+    "5": "Personality",
+    "6": "Voice",
+    "7": "Other",
+}
+
 
 class VoiceConversation:
-    def __init__(self, loop: ReasoningLoop, stt_engine, tts_engine) -> None:
+    def __init__(
+        self,
+        loop: ReasoningLoop,
+        stt_engine,
+        tts_engine,
+        enable_rating: bool = False,
+    ) -> None:
         self._loop = loop
         self.stt = stt_engine
         self.tts = tts_engine
         self._capability_log = CapabilityLog()
         self._logger = OperationalLogger()
+        self._enable_rating = enable_rating
+        self._conversation_sequence = 0
 
     def run_one(self, audio: np.ndarray) -> str:
         t0 = time.perf_counter()
@@ -34,7 +54,10 @@ class VoiceConversation:
     def run_one_text(self, text: str) -> str:
         if not text.strip():
             return ""
-        return self._process(text, speak=False, stt_ms=0.0)
+        response = self._process(text, speak=False, stt_ms=0.0)
+        if self._enable_rating:
+            self._prompt_rating()
+        return response
 
     def handle_command(self, cmd: str) -> str:
         parts = cmd.strip().split(maxsplit=1)
@@ -66,15 +89,66 @@ class VoiceConversation:
         voices = list_voices()
         return f"Available Kokoro voices ({len(voices)}):\n  " + "\n  ".join(voices)
 
+    def _prompt_rating(self) -> None:
+        seq = self._conversation_sequence - 1
+        try:
+            raw = input(_RATING_PROMPT).strip()
+        except (EOFError, KeyboardInterrupt):
+            return
+        if not raw:
+            return
+
+        try:
+            rating = int(raw)
+        except ValueError:
+            return
+
+        if rating not in (1, 2, 3):
+            return
+
+        category = ""
+        note = ""
+        if rating == 1:
+            print("What went wrong?")
+            print("  [1] STT      [2] Memory  [3] Knowledge  [4] Goal")
+            print("  [5] Personality  [6] Voice     [7] Other")
+            try:
+                cat_raw = input("> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                cat_raw = ""
+            category = _RATING_CATEGORIES.get(cat_raw, "Other")
+            try:
+                note = input("Short note: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                note = ""
+
+        self._logger.log_rating(
+            sequence=seq,
+            rating=rating,
+            category=category,
+            note=note,
+        )
+
     def _process(
         self, text: str, speak: bool = True, stt_ms: float = 0.0
     ) -> str:
+        self._conversation_sequence += 1
+        seq = self._conversation_sequence
+
         print(f"\nYou: {text}")
 
         t0 = time.perf_counter()
         result = self._loop.run(text)
         t1 = time.perf_counter()
         runtime_ms = (t1 - t0) * 1000
+
+        stt_val = getattr(self.stt, "last_corrected", False)
+        stt_corrected = bool(stt_val) if isinstance(stt_val, bool) else False
+        response_words = len(result.response.split())
+        memory_hits = 1 if result.memory_id else 0
+        governance_path = f"tier{result.tier}"
+        if result.blocked:
+            governance_path += "_blocked"
 
         if result.blocked:
             print(f"SAGE: {result.response}")
@@ -86,15 +160,21 @@ class VoiceConversation:
                 runtime_ms=runtime_ms,
                 tts_ms=0.0,
                 blocked=True,
+                stt_corrected=stt_corrected,
+                response_words=response_words,
+                memory_hits=memory_hits,
+                knowledge_hits=0,
+                governance_path=governance_path,
+                conversation_sequence=seq,
             )
-            if speak:
+            if speak and self.tts is not None:
                 msg = result.response
                 print(f"  [DIAG] repr: {repr(msg)}")
                 self.tts.speak(msg)
             return result.response
 
         tts_ms = 0.0
-        if speak:
+        if speak and self.tts is not None:
             msg = result.response
             print(f"  [DIAG] repr: {repr(msg)}")
             t2 = time.perf_counter()
@@ -113,6 +193,12 @@ class VoiceConversation:
             runtime_ms=runtime_ms,
             tts_ms=tts_ms,
             blocked=False,
+            stt_corrected=stt_corrected,
+            response_words=response_words,
+            memory_hits=memory_hits,
+            knowledge_hits=0,
+            governance_path=governance_path,
+            conversation_sequence=seq,
         )
 
         if result.from_shortcut and result.capability_id:

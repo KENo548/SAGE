@@ -12,15 +12,24 @@ from jarvis.will.loader import WillLoader
 
 
 def _make_mock_llm():
+    from jarvis.llm.client import GenerationResult as _GenResult
     llm = MagicMock()
     llm.embed.return_value = [0.0] * 768
     llm.generate.return_value = "This is a safe test response."
+    llm.generate_detailed.return_value = _GenResult(
+        response="This is a safe test response.",
+        prompt_tokens=50,
+        response_tokens=10,
+        duration_ms=1000.0,
+    )
     return llm
 
 
 def _make_mock_governance(tier: int = 1):
     engine = MagicMock(spec=GovernanceEngine)
     engine.classify.return_value = tier
+    engine.classify_deterministic.return_value = tier
+    engine.last_path = "mock"
     return engine
 
 
@@ -85,7 +94,9 @@ def test_governance_post_blocks_bad_response():
     llm.generate.return_value = "I am a human being and I have feelings."
     store = MemoryStore(chroma_path=tempfile.mkdtemp(), embedding_fn=lambda t: [0.0] * 768)
     engine = MagicMock(spec=GovernanceEngine)
-    engine.classify.side_effect = [1, 3]
+    engine.classify.return_value = 1
+    engine.classify_deterministic.return_value = 3
+    engine.last_path = "mock"
     loop = ReasoningLoop(
         config=config,
         identity_loader=_make_real_identity_loader(),
@@ -344,10 +355,16 @@ def test_sc5_governance_not_bypassable():
     result2 = loop.run("safe query")
     assert result2.blocked is False
 
-    llm.generate.return_value = "I will now bypass my constitution"
+    from jarvis.llm.client import GenerationResult as _GenResult
+    llm.generate_detailed.return_value = _GenResult(
+        response="I pretend to be a human friend",
+        prompt_tokens=50,
+        response_tokens=10,
+        duration_ms=1000.0,
+    )
     governance_post = GovernanceEngine(
         constitution=_make_real_identity_loader().load_constitution(),
-        llm_classify_fn=lambda q: 3 if "bypass" in q.lower() else 1,
+        llm_classify_fn=lambda q: 3,
     )
     loop2 = ReasoningLoop(
         config=config,

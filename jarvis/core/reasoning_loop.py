@@ -84,6 +84,11 @@ class ReasoningLoop:
         self.embed_fn = embed_fn or llm_client.embed
         self._cached_identity: Optional[Identity] = None
         self._cached_will: Optional[Will] = None
+        self._ollama_verified_at: Optional[float] = None
+        self._gov_post_pattern_hits = 0
+        self._gov_post_tier3_matches = 0
+        self._gov_post_tier2_matches = 0
+        self._gov_post_blocks = 0
 
     def _get_identity(self) -> Identity:
         if self._cached_identity is None:
@@ -204,22 +209,39 @@ class ReasoningLoop:
 
             t10 = time.perf_counter()
             system_prompt = self._build_system_prompt(identity)
-            response = self.llm_client.generate(
+            sys_tokens = len(system_prompt.split())
+            print(f"  [system] {sys_tokens}tokens (word-estimate)")
+            gen_result = self.llm_client.generate_detailed(
                 system=system_prompt,
                 prompt=context,
                 temperature=self.config.llm.get("temperature", 0.7),
             )
+            response = gen_result.response
             trace.steps["10_llm_generation"] = len(response.split())
             trace.steps["t10_llm_ms"] = int((time.perf_counter() - t10) * 1000)
+            ptok = gen_result.prompt_tokens
+            rtok = gen_result.response_tokens
+            tps = gen_result.tokens_per_second
+            print(f"  [llm] prompt={ptok}tokens response={rtok}tokens {tps:.1f}tok/s")
         else:
             response = cap_result.output
 
-        # ── Post-generation governance (runs for both paths) ──
+        # ── Post-generation governance (deterministic only, no LLM call) ──
         t11 = time.perf_counter()
-        response_tier = self.governance_engine.classify(response)
+        response_tier = self.governance_engine.classify_deterministic(response)
+        gov_path = self.governance_engine.last_path
+        blocked = response_tier == 3
+        self._gov_post_pattern_hits += 1
+        if response_tier == 3:
+            self._gov_post_tier3_matches += 1
+        elif response_tier == 2:
+            self._gov_post_tier2_matches += 1
+        if blocked:
+            self._gov_post_blocks += 1
         trace.steps["11_governance_post"] = response_tier
         trace.steps["t11_gov_post_ms"] = int((time.perf_counter() - t11) * 1000)
-        if response_tier == 3:
+        print(f"  [gov_post] path={gov_path} tier={response_tier} blocked={blocked}")
+        if blocked:
             trace.end_time = datetime.now(timezone.utc)
             return ReasoningResult(
                 response="I cannot emit that response. It violates my constitutional rules.",
@@ -285,10 +307,15 @@ class ReasoningLoop:
         )
 
     def end_session(self) -> list[KnowledgeEntry]:
+        if self._gov_post_pattern_hits > 0:
+            print(f"  [gov_post stats] checks={self._gov_post_pattern_hits} "
+                  f"tier3={self._gov_post_tier3_matches} "
+                  f"tier2={self._gov_post_tier2_matches} "
+                  f"blocks={self._gov_post_blocks}")
         try:
             return run_promotion_pipeline(
                 store=self.memory_store,
-                embedding_fn=self.llm_client.embed,
+                embedding_fn=self.embed_fn,
                 threshold=self.config.promotion.get("threshold", 0.65),
                 min_cluster_size=self.config.promotion.get("min_cluster_size", 3),
             )
@@ -330,13 +357,21 @@ class ReasoningLoop:
         diag["chroma_client"] = (time.perf_counter() - t3) * 1000
 
         t4 = time.perf_counter()
-        try:
-            url = self.config.models.get("ollama_url", "http://localhost:11434")
-            r = requests.get(f"{url}/api/tags", timeout=5)
-            report.model_available = r.status_code == 200
-        except Exception:
-            report.model_available = False
-        diag["ollama_ping"] = (time.perf_counter() - t4) * 1000
+        now = time.monotonic()
+        if self._ollama_verified_at is not None and now - self._ollama_verified_at < 300:
+            report.model_available = True
+            diag["ollama_ping"] = 0.0
+        else:
+            try:
+                url = self.config.models.get("ollama_url", "http://localhost:11434")
+                r = requests.get(f"{url}/api/tags", timeout=5)
+                report.model_available = r.status_code == 200
+                if report.model_available:
+                    self._ollama_verified_at = now
+            except Exception:
+                self._ollama_verified_at = None
+                report.model_available = False
+            diag["ollama_ping"] = (time.perf_counter() - t4) * 1000
 
         report.passed = all([
             report.config_ok,
@@ -407,6 +442,9 @@ class ReasoningLoop:
             f"You are {identity.name}.",
             "You already know who you are. Do not repeatedly describe your identity, purpose, architecture, capabilities, or cognitive nature unless directly asked.",
             "In normal conversation, respond naturally as a trusted assistant and advisor.",
+            "Speak briefly and conversationally. Use short sentences. This is a spoken conversation, not a written document.",
+            "Never use lists, bullet points, numbered items, bold, asterisks, markdown, or any formatted text in your responses.",
+            "Be direct and natural. Say 'I'm good' not 'I am functioning within normal parameters.' Say 'Sure' not 'Certainly, I would be happy to assist.'",
             "Constitution: Never claim to be human. Never modify your own identity files, constitution, or memory stores. Never assist with harmful acts. Never deceive.",
         ]
 

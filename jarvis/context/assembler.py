@@ -10,10 +10,35 @@ class Tokenizer(Protocol):
 
 
 class WordCountTokenizer:
-    multiplier: float = 1.3
+    multiplier: float = 0.7
 
     def count(self, text: str) -> int:
         return int(len(text.split()) * self.multiplier)
+
+
+def _token_counts(
+    constitution: Constitution,
+    identity: Identity,
+    will: Will | None,
+    memories: list[MemoryEntry],
+    knowledge: list[KnowledgeEntry],
+    query: str,
+    tokenizer: Tokenizer,
+) -> dict[str, int]:
+    """Measure per-section token counts without rendering into context."""
+    counts = {}
+    counts["constitution"] = tokenizer.count(_format_constitution(constitution))
+    counts["soul"] = tokenizer.count(_format_soul(identity))
+    counts["genesis"] = tokenizer.count(identity.genesis_text)
+    counts["personality"] = tokenizer.count(_format_personality(identity))
+    counts["will"] = tokenizer.count(_format_will(will)) if will else 0
+    counts["knowledge"] = tokenizer.count(_format_knowledge(knowledge))
+    counts["memories"] = tokenizer.count(_format_memories(memories))
+    counts["query"] = tokenizer.count(query)
+    counts["total"] = sum(counts.values())
+    parts = [f"{k}={v}tokens" for k, v in counts.items()]
+    print("  [context] " + " ".join(parts))
+    return counts
 
 
 def assemble_context(
@@ -26,7 +51,9 @@ def assemble_context(
     budget: int = 2000,
     tokenizer: Tokenizer = WordCountTokenizer(),
 ) -> str:
-    sections: list[tuple[str, int]] = []
+    _token_counts(constitution, identity, will, memories, knowledge, query, tokenizer)
+
+    sections: list[tuple[str, str]] = []
 
     def add(name: str, text: str) -> None:
         sections.append((name, text))
@@ -78,6 +105,31 @@ def assemble_context(
         assembled.append(f"<query>\n{query}\n</query>")
 
     return "\n\n".join(assembled)
+
+
+def _format_personality(identity: Identity) -> str:
+    lines = ["<personality>"]
+    if identity.personality_style:
+        for k, v in identity.personality_style.items():
+            lines.append(f"  {k}: {v}")
+    if identity.traits:
+        lines.append("  traits:")
+        for k, v in identity.traits.items():
+            lines.append(f"    {k}: {v}")
+    if identity.quirks:
+        lines.append("  quirks:")
+        for q in identity.quirks:
+            lines.append(f"    - {q}")
+    if identity.values:
+        lines.append("  values:")
+        for v in identity.values:
+            lines.append(f"    - {v}")
+    if identity.limitations:
+        lines.append("  limitations:")
+        for l in identity.limitations:
+            lines.append(f"    - {l}")
+    lines.append("</personality>")
+    return "\n".join(lines)
 
 
 def _format_constitution(constitution: Constitution) -> str:

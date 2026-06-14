@@ -8,12 +8,17 @@ import sounddevice as sd
 
 def clean_for_speech(text: str) -> str:
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
     text = re.sub(r"`(.+?)`", r"\1", text)
-    text = re.sub(r"^[#*>\-]\s+", "", text, flags=re.MULTILINE)
-    text = re.sub(r"[\[\](){}<>]", "", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"https?://\S+", "", text)
     text = re.sub(r"```[\s\S]*?```", "", text)
+    text = re.sub(r"^[#*>\-]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\d+[.)]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"[\[\](){}<>]", "", text)
     text = re.sub(r"---+\n?", "", text)
     text = re.sub(r"\n{2,}", ". ", text)
+    text = re.sub(r"  +", " ", text)
     return text.strip()
 
 
@@ -43,11 +48,19 @@ class TTSBackend(ABC):
             wf.setframerate(rate)
             wf.writeframes(samples_int16.tobytes())
         t_s = time.perf_counter()
-        sd.play(samples, samplerate=rate)
+        silence = np.zeros(int(rate * 0.2), dtype=samples.dtype)
+        padded = np.concatenate([samples, silence])
+        sd.play(padded, samplerate=rate)
         if block:
             sd.wait()
-        dur = len(samples) / rate
-        print(f"  [{type(self).__name__.removesuffix('Backend')}] {dur:.1f}s audio — play {int((time.perf_counter()-t_s)*1000)}ms")
+        dur_s = len(samples) / rate
+        play_ms = int((time.perf_counter() - t_s) * 1000)
+        text_chars = len(text)
+        text_words = len(text.split())
+        wps = text_words / dur_s if dur_s > 0 else 0
+        print(f"  [{type(self).__name__.removesuffix('Backend')}] "
+              f"{dur_s:.1f}s audio ({text_chars}chars {text_words}words, {wps:.0f}wps) — "
+              f"playback {play_ms}ms")
 
     def speak_async(self, text: str) -> Optional:
         import threading

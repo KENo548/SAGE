@@ -81,7 +81,7 @@ def voice_mode(no_tts: bool = False) -> None:
     print(f"Runtime: {report.message}")
     stt = STTEngine("tiny")
     tts = None if no_tts else create_tts_engine()
-    conv = VoiceConversation(loop=loop, stt_engine=stt, tts_engine=tts)
+    conv = VoiceConversation(loop=loop, stt_engine=stt, tts_engine=tts, enable_rating=True)
 
     try:
         while True:
@@ -120,7 +120,7 @@ def text_mode() -> None:
 
     print(f"Runtime: {report.message}")
     stt = STTEngine("tiny")
-    conv = VoiceConversation(loop=loop, stt_engine=stt, tts_engine=None)
+    conv = VoiceConversation(loop=loop, stt_engine=stt, tts_engine=None, enable_rating=True)
 
     try:
         while True:

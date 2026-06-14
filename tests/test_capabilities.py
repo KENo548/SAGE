@@ -53,14 +53,14 @@ def test_sc2_memory_recall_shortcut():
     cap_id = match_shortcut("recall my previous questions")
     assert cap_id == "memory_recall"
 
-    cap_id = match_shortcut("do you know about anything else")
+    cap_id = match_shortcut("do you remember about anything else")
     assert cap_id == "memory_recall"
 
     cap_id = match_shortcut("tell me about archi")
-    assert cap_id == "memory_recall"
+    assert cap_id is None  # too broad — general question, not memory recall
 
     cap_id = match_shortcut("what do you know about me?")
-    assert cap_id == "memory_recall"
+    assert cap_id == "knowledge_lookup"  # specific about what SAGE knows
 
 
 def test_sc3_summarize_shortcut():
@@ -106,9 +106,11 @@ def test_sc4_general_conversation_unchanged():
 def test_sc5_governance_not_bypassable_through_capabilities():
     """SC-5: Governance still blocks Tier 3 even on capability output."""
     config = load_config("configs/config.yaml")
+    from jarvis.llm.client import GenerationResult as _GenResult
     llm = MagicMock()
     llm.embed.return_value = [0.0] * 768
     llm.generate.return_value = "summary text"
+    llm.generate_detailed.return_value = _GenResult(response="summary text", prompt_tokens=10, response_tokens=5, duration_ms=500.0)
     store = MemoryStore(chroma_path=tempfile.mkdtemp(), embedding_fn=lambda t: [0.0] * 768)
     tmp = tempfile.mkdtemp()
     loader = _make_will_loader(tmp)
@@ -274,10 +276,13 @@ def test_patterns_cover_key_phrases():
 
 def test_reasoning_result_carries_shortcut_flag():
     """ReasoningResult.from_shortcut is True when capability fires."""
+    from jarvis.llm.client import GenerationResult as _GenResult
+
     config = load_config("configs/config.yaml")
     llm = MagicMock()
     llm.embed.return_value = [0.0] * 768
     llm.generate.return_value = "mock"
+    llm.generate_detailed.return_value = _GenResult(response="mock", prompt_tokens=10, response_tokens=5, duration_ms=500.0)
     store = MemoryStore(chroma_path=tempfile.mkdtemp(), embedding_fn=lambda t: [0.0] * 768)
     tmp = tempfile.mkdtemp()
     loader = _make_will_loader(tmp)
@@ -288,7 +293,7 @@ def test_reasoning_result_carries_shortcut_flag():
     loop = ReasoningLoop(
         config=config,
         identity_loader=IdentityLoader(soul_path="data/soul", constitution_path="data/constitution"),
-        governance_engine=MagicMock(classify=lambda q: 1),
+        governance_engine=MagicMock(classify=lambda q: 1, classify_deterministic=lambda q: 1, last_path="mock"),
         will_loader=loader,
         memory_store=store,
         llm_client=llm,
