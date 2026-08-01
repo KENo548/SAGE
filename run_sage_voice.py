@@ -92,7 +92,7 @@ def voice_mode(no_tts: bool = False) -> None:
                 if user_input.startswith("/"):
                     print(conv.handle_command(user_input))
                 else:
-                    conv.run_one_text(user_input)
+                    conv.run_one_text(user_input, speak=True)
                 continue
 
             audio = record_toggle()

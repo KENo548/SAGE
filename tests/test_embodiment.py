@@ -6,7 +6,7 @@ import numpy as np
 
 from jarvis.embodiment.microphone import record_toggle
 from jarvis.embodiment.stt import STTEngine
-from jarvis.embodiment.tts_backends.base import _split_sentences
+from jarvis.embodiment.tts_backends.base import _split_sentences, clean_for_speech
 
 
 def test_split_sentences_basic():
@@ -30,6 +30,20 @@ def test_split_sentences_with_newlines():
     assert "Line one." in result
     assert "Line two." in result
     assert "Line three." in result
+
+
+def test_clean_for_speech_expands_thousands_separators():
+    assert clean_for_speech("It cost 3,000 dollars.") == "It cost 3000 dollars."
+    assert clean_for_speech("1,000,000 people") == "1000000 people"
+    assert clean_for_speech("Value: 12,345.67") == "Value: 12345.67"
+    assert clean_for_speech("Indian format 3,00,000") == "Indian format 300000"
+
+
+def test_clean_for_speech_leaves_normal_commas_alone():
+    assert clean_for_speech("Hello, world.") == "Hello, world."
+    assert clean_for_speech("List: 1, 2, 3.") == "List: 1, 2, 3."
+    assert clean_for_speech("In 2024, SAGE improved.") == "In 2024, SAGE improved."
+    assert clean_for_speech("a, b, 3,000 c") == "a, b, 3000 c"
 
 
 def test_stt_engine_empty_audio():

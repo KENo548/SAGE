@@ -51,10 +51,10 @@ class VoiceConversation:
             return ""
         return self._process(text, speak=True, stt_ms=(t1 - t0) * 1000)
 
-    def run_one_text(self, text: str) -> str:
+    def run_one_text(self, text: str, speak: bool = False) -> str:
         if not text.strip():
             return ""
-        response = self._process(text, speak=False, stt_ms=0.0)
+        response = self._process(text, speak=speak, stt_ms=0.0)
         if self._enable_rating:
             self._prompt_rating()
         return response

@@ -379,3 +379,23 @@ def test_sc5_governance_not_bypassable():
     assert "cannot emit" in result3.response.lower()
 
     store.close()
+
+def test_system_prompt_contains_continuity_directive():
+    config = load_config("configs/config.yaml")
+    llm = _make_mock_llm()
+    store = MemoryStore(chroma_path=tempfile.mkdtemp(), embedding_fn=lambda t: [0.0] * 768)
+    loop = ReasoningLoop(
+        config=config,
+        identity_loader=_make_real_identity_loader(),
+        governance_engine=_make_mock_governance(1),
+        will_loader=_make_real_will_loader(tempfile.mkdtemp()),
+        memory_store=store,
+        llm_client=llm,
+    )
+    identity = loop._get_identity()
+    prompt = loop._build_system_prompt(identity)
+    assert "Continuity:" in prompt
+    assert "someone you already know" in prompt
+    assert "active goal and recent memories" in prompt
+    assert "instead of starting from zero" in prompt
+    store.close()

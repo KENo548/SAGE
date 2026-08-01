@@ -6,6 +6,19 @@ import numpy as np
 import sounddevice as sd
 
 
+_NUMBER_WITH_SEPARATOR = re.compile(r"(?<=\d),(?=\d{2,3}\b)")
+
+
+def _expand_grouped_numbers(text: str) -> str:
+    """Strip thousands separators so '3,000' is read 'three thousand'.
+
+    Without this, espeak reads '3,000' digit-by-digit ('three zero zero
+    zero'). Matches both Western (1,000,000) and Indian (3,00,000) grouping
+    while leaving list commas and ordinary prose commas untouched.
+    """
+    return _NUMBER_WITH_SEPARATOR.sub("", text)
+
+
 def clean_for_speech(text: str) -> str:
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
     text = re.sub(r"\*(.+?)\*", r"\1", text)
@@ -19,6 +32,7 @@ def clean_for_speech(text: str) -> str:
     text = re.sub(r"---+\n?", "", text)
     text = re.sub(r"\n{2,}", ". ", text)
     text = re.sub(r"  +", " ", text)
+    text = _expand_grouped_numbers(text)
     return text.strip()
 
 

@@ -1,0 +1,161 @@
+# data/pronunciations/pronunciations.yaml
+#
+# SAGE's personal pronunciation dictionary.
+#
+# Each entry maps a written form (as it appears in SAGE's speech) to its
+# correct pronunciation. Three entry formats are supported:
+#
+#   1. Native-script (recommended, most authentic):
+#        Sanatana: { script: "सनातन", lang: hi }
+#      SAGE phonemizes the native spelling in that language and speaks the
+#      word with its authentic pronunciation.
+#
+#   2. Direct phonemes (power users only):
+#        Sanatana: { phonemes: "sənˈaːtən" }
+#      Phonemes must use the espeak-ng symbol set that Kokoro understands.
+#
+#   3. Simple respelling (plain text substitution):
+#        Herr: { spoken: "hair" }
+#      The spoken form is substituted into the text before synthesis. Simple
+#      and safe, but less precise than native-script phonemization.
+#
+# Languages supported by this machine's espeak build include:
+#   hi mr bn gu kn ml pa te ta ur ne si  (Indian)
+#   it de es ja ko ru pt nl pl tr el    (others)
+
+pronunciations:
+
+  # ── Sanskrit / Hindi (spoken via Hindi phonemizer for authentic sound) ──
+  # Multiple Romanized spellings map to the same native script so the
+  # pronunciation is authentic no matter how the word is transliterated.
+  Sanatana:
+    script: "सनातन"
+    lang: hi
+  Sanathana:
+    script: "सनातन"
+    lang: hi
+  Sanatan:
+    script: "सनातन"
+    lang: hi
+  Sanathan:
+    script: "सनातन"
+    lang: hi
+  Sanatana Dharma:
+    script: "सनातन धर्म"
+    lang: hi
+  Sanathana Dharma:
+    script: "सनातन धर्म"
+    lang: hi
+  Sanatan Dharma:
+    script: "सनातन धर्म"
+    lang: hi
+  Sanathan Dharma:
+    script: "सनातन धर्म"
+    lang: hi
+  Dharma:
+    script: "धर्म"
+    lang: hi
+  Dharm:
+    script: "धर्म"
+    lang: hi
+  Bhagavad Gita:
+    script: "भगवद् गीता"
+    lang: hi
+  Gita:
+    script: "गीता"
+    lang: hi
+  Advaita:
+    script: "अद्वैत"
+    lang: hi
+  Chanakya:
+    script: "चाणक्य"
+    lang: hi
+  Brahman:
+    script: "ब्रह्मन्"
+    lang: hi
+  Atman:
+    script: "आत्मन्"
+    lang: hi
+  Karma:
+    script: "कर्म"
+    lang: hi
+  Guru:
+    script: "गुरु"
+    lang: hi
+  Mantra:
+    script: "मंत्र"
+    lang: hi
+  Veda:
+    script: "वेद"
+    lang: hi
+  Vedas:
+    script: "वेद"
+    lang: hi
+  Upanishad:
+    script: "उपनिषद्"
+    lang: hi
+  Ashram:
+    script: "आश्रम"
+    lang: hi
+  Namaste:
+    script: "नमस्ते"
+    lang: hi
+  Ayodhya:
+    script: "अयोध्या"
+    lang: hi
+  Rishikesh:
+    script: "ऋषिकेश"
+    lang: hi
+  Mahabharata:
+    script: "महाभारत"
+    lang: hi
+  Ramayana:
+    script: "रामायण"
+    lang: hi
+
+  # ── Lapis lazuli (an English mineral name often mangled by TTS) ──
+  # Correct pronunciation: LAP-is LAZ-yoo-lee
+  lapis lazuli:
+    phonemes: "lˈæpɪs lˈæzjʊliː"
+  lapiz lazuli:
+    phonemes: "lˈæpɪs lˈæzjʊliː"
+
+  # ── Italian ──
+  Bocconi:
+    script: "Bocconi"
+    lang: it
+  Milano:
+    script: "Milano"
+    lang: it
+  Grazie:
+    script: "Grazie"
+    lang: it
+  Prego:
+    script: "Prego"
+    lang: it
+  Buongiorno:
+    script: "Buongiorno"
+    lang: it
+  Leonardo:
+    script: "Leonardo"
+    lang: it
+
+  # ── German (user is learning A1) ──
+  Guten Morgen:
+    script: "Guten Morgen"
+    lang: de
+  Danke:
+    script: "Danke"
+    lang: de
+  Tschuss:
+    script: "Tschüss"
+    lang: de
+  Goethe:
+    script: "Goethe"
+    lang: de
+  Bach:
+    script: "Bach"
+    lang: de
+  Beethoven:
+    script: "Beethoven"
+    lang: de

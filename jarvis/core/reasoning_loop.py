@@ -464,4 +464,12 @@ class ReasoningLoop:
                 avoid_str = "; ".join(avoid).replace("_", " ")
                 parts.append(f"Avoid: {avoid_str}.")
 
+        parts.append(
+            "Continuity: you are speaking to someone you already know, not a stranger. "
+            "Use the active goal and recent memories naturally — open by picking up "
+            "what is already underway (e.g. 'Ready to continue the Bocconi prep?') instead "
+            "of starting from zero, and acknowledge what was said or worked on before. "
+            "Never recite stored facts as a list; just let them shape your reply."
+        )
+
         return "\n".join(parts)
