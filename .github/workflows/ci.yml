@@ -3,9 +3,13 @@ name: CI
 on:
   push:
   pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
 
 jobs:
   test:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,16 +18,34 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libportaudio2
-
-      - name: Install Python dependencies
-        run: |
           python -m pip install --upgrade pip
           pip install openai-whisper==20250625 numpy chromadb==1.5.9 PyYAML requests sounddevice pytest
 
       - name: Run tests
         run: |
           python -m pytest tests/ -v --tb=short
+
+  certify:
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libportaudio2
+          python -m pip install --upgrade pip
+          pip install openai-whisper==20250625 numpy chromadb==1.5.9 PyYAML requests sounddevice pytest
+
+      - name: Run migration certification
+        run: |
+          python scripts/certify_migration.py
